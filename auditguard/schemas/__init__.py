@@ -14,6 +14,7 @@ from auditguard.schemas.report import (
     DraftReport,
     DraftSections,
     DraftSentence,
+    Recommendation,
     SingleAgentAnswer,
     SingleAgentResult,
 )
@@ -37,6 +38,7 @@ __all__ = [
     "Passage",
     "Payload",
     "Receipt",
+    "Recommendation",
     "RuleMeta",
     "RuleResult",
     "SingleAgentAnswer",

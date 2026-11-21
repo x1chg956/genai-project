@@ -45,6 +45,7 @@ def make_agent_node(deps: GraphDeps) -> Any:
         update: dict[str, Any] = {
             "result": outcome.result,
             "indicators": outcome.indicators,
+            "tool_records": outcome.records,
             "agent_stats": asdict(outcome.stats),
         }
         if outcome.result is not None:

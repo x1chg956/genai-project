@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field, model_validator
 
 from auditguard.schemas.common import Model
@@ -40,6 +42,10 @@ class DraftReport(Model):
         return {eid for s in self.sections.sentences() for eid in s.evidence_ids}
 
 
+Recommendation = Literal["escalate_for_review", "no_action", "insufficient_data"]
+"""What the agent proposes. The analyst decides at decision_gate (rule 1: the model proposes)."""
+
+
 class SingleAgentResult(Model):
     """C1 single agent output (docs/03 §2): one structured object."""
 
@@ -47,6 +53,8 @@ class SingleAgentResult(Model):
     hypotheses: list[Hypothesis]
     passages: list[Passage]
     draft: DraftReport
+    recommendation: Recommendation
+    recommendation_reason: str = ""
 
 
 class SingleAgentAnswer(Model):
@@ -56,3 +64,5 @@ class SingleAgentAnswer(Model):
     hypotheses: list[Hypothesis]
     passage_ids: list[str] = Field(default_factory=list)
     draft: DraftReport
+    recommendation: Recommendation
+    recommendation_reason: str = ""

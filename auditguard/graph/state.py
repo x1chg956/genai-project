@@ -49,6 +49,8 @@ class CaseState(TypedDict, total=False):
     indicators: list[RuleResult]
     """Rule results from the tool; shown at the decision gate even if the answer failed."""
     agent_stats: dict[str, Any]
+    tool_records: list[dict[str, Any]]
+    """The agent's tool calls and results (tool, args, result); its claims are checked on these."""
     decision: Decision | None
     drafts: list[DraftReport]
     payload: Payload | None

@@ -33,6 +33,8 @@ def evidence_view(state: CaseState) -> dict[str, Any]:
         "hypotheses": [h.model_dump(mode="json") for h in result.hypotheses] if result else [],
         "passages": [p.model_dump(mode="json") for p in result.passages] if result else [],
         "draft": result.draft.model_dump(mode="json") if result else None,
+        "recommendation": result.recommendation if result else None,
+        "recommendation_reason": result.recommendation_reason if result else "",
         "data_quality": quality.model_dump(mode="json") if quality else None,
         "errors": [e.model_dump(mode="json") for e in state.get("errors", [])],
         "agent_stats": state.get("agent_stats", {}),

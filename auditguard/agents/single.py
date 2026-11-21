@@ -78,6 +78,8 @@ class AgentOutcome:
     stats: AgentStats
     indicators: list[RuleResult] = field(default_factory=list)
     """From the last evaluate_rules call, kept even when the answer is refused."""
+    records: list[dict[str, Any]] = field(default_factory=list)
+    """Every tool call the model made (tool, args, result), for audit and the evaluation."""
 
 
 def task_message(alert: Alert, ledger: LedgerSlice, quality: DataQualityReport) -> str:
@@ -234,15 +236,23 @@ async def run_single_agent(
     if answer is None:
         message = "; ".join(problems) or "no answer"
         err = ToolError.model_validate(local_error("INVALID_INPUT", message, CALLER))
-        return AgentOutcome(None, err, stats, last_indicators(session.records))
+        return AgentOutcome(None, err, stats, last_indicators(session.records), _dump(session))
     passages = returned_passages(session.records)
     result = SingleAgentResult(
         indicators=last_indicators(session.records),
         hypotheses=answer.hypotheses,
         passages=[passages[pid] for pid in answer.passage_ids],
         draft=answer.draft,
+        recommendation=answer.recommendation,
+        recommendation_reason=answer.recommendation_reason,
     )
-    return AgentOutcome(result, None, stats, result.indicators)
+    return AgentOutcome(result, None, stats, result.indicators, _dump(session))
+
+
+def _dump(session: ToolSession) -> list[dict[str, Any]]:
+    return [
+        {"tool": r.tool, "args": r.args, "result": r.result} for r in session.records if r.by_model
+    ]
 
 
 __all__ = ["AgentOutcome", "AgentStats", "check_answer", "run_single_agent"]

@@ -193,3 +193,13 @@ def test_gates_only_read_before_interrupt(tmp_path: Path, node: str) -> None:
     run(drive(world, *resumes))
     with world.approvals._connect() as conn:
         assert conn.execute("select count(*) from approvals").fetchone()[0] == 0
+
+
+def test_decision_gate_shows_the_recommendation_and_tool_records(tmp_path: Path) -> None:
+    out, seen = run(drive(World(tmp_path)))
+    assert seen[-1]["evidence_pack"]["recommendation"] == "no_action"
+    assert [r["tool"] for r in out["tool_records"]] == [
+        "evaluate_rules",
+        "get_account_summary",
+        "search_passages",
+    ]

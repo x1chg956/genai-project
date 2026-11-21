@@ -118,6 +118,9 @@ def show_decision(view: dict[str, Any], out: Callable[[str], None]) -> None:
     for r in pack["indicators"]:
         flag = "FIRED" if r["fired"] else "not fired"
         out(f"  {r['rule_id']} v{r['version']}: {flag}; inputs {json.dumps(r['inputs'])}")
+    if pack.get("recommendation"):
+        out(f"Agent recommends: {pack['recommendation']} ({pack.get('recommendation_reason', '')})")
+        out("  The decision is yours.")
     out("Hypotheses:")
     for h in pack["hypotheses"]:
         out(f"  {h['hyp_id']} [{h['kind']}, {h['status']}] {h['label']} {h['evidence_ids']}")

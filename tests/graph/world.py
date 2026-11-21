@@ -135,6 +135,8 @@ def good_answer(records: list[dict[str, Any]]) -> SingleAgentAnswer:
                 },
             ],
             "passage_ids": [passages[0]["passage_id"]] if passages else [],
+            "recommendation": "no_action",
+            "recommendation_reason": "no rule fired",
             "draft": {
                 "version": 1,
                 "sections": {
