@@ -157,6 +157,31 @@ class TracingSettings(_Strict):
     workspace_id: OptStr = None
 
 
+class IngestSettings(_Strict):
+    window_days: int = Field(ge=1, le=366)
+
+
+class CheckpointerSettings(_Strict):
+    path: str
+
+
+class NamedRef(_Strict):
+    name: str
+    code: str
+
+
+class OfficerRef(_Strict):
+    id: str
+    designation: str
+
+
+class StrReportSettings(_Strict):
+    reason_codes: str
+    reporting_entity: NamedRef
+    principal_officer: OfficerRef
+    branch: NamedRef
+
+
 class ShortTermMemory(_Strict):
     keep_turns: int
 
@@ -221,6 +246,9 @@ class Settings(_Strict):
     guardrails: Guardrails
     memory: MemorySettings
     approval: ApprovalSettings
+    ingest: IngestSettings
+    checkpointer: CheckpointerSettings
+    str_report: StrReportSettings
     filing_portal: FilingPortalSettings
     mcp: McpSettings
 

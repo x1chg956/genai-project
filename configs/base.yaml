@@ -93,6 +93,18 @@ approval:
   hmac_key: ${APPROVAL_HMAC_KEY:-}
   store_path: ${APPROVAL_STORE:-var/approvals.db}   # Phase 1 SQLite; Postgres from Phase 2
 
+ingest:                                        # ingest_validate (code node), docs/03 §2
+  window_days: 60                              # local days ending on the alert's detection date
+
+checkpointer:                                  # Phase 1: SQLite; Postgres from Phase 2 (thread_id = run_id)
+  path: ${CHECKPOINT_DB:-var/checkpoints.db}
+
+str_report:                                    # fixed parts of the mock FIU-IND STR payload (docs/08 §1)
+  reason_codes: configs/reason_codes.yaml      # fired rule -> reason code; analyst confirms at approval
+  reporting_entity: {name: "Synthetic Commercial Bank (mock)", code: "RE-SYN-0001"}
+  principal_officer: {id: "PO-SYN-0001", designation: "Principal Officer (synthetic)"}
+  branch: {code: "BR-SYN-0001", name: "Synthetic Branch (mock)"}
+
 filing_portal:                                 # mock FIU-IND portal, own SQLite
   db_path: ${PORTAL_DB:-var/portal.db}
   form_limits:                                 # project placeholders; confirm with the domain reviewer

@@ -1,0 +1,8 @@
+# Fired rule -> STR reason code (docs/08 §1). PLACEHOLDERS: these are not FIU-IND codes.
+# The domain reviewer replaces them with the codes from the FIU-IND reporting format.
+# The analyst confirms the proposed codes at the approval gate; code never invents one.
+version: 0
+codes:
+  R01: {code: RC-SYN-01, label: "Cash deposits structured below the reporting threshold"}
+  R04: {code: RC-SYN-04, label: "Rapid movement of funds through the account"}
+  R07: {code: RC-SYN-07, label: "Many unrelated senders into one account"}
