@@ -27,6 +27,53 @@ The payload follows the FIU-IND bank STR structure (report details, Principal Of
 
 Nodes before an interrupt are idempotent (resume re-runs the interrupted node from its start).
 
+### Approval and submit, step by step
+
+The sequence shows one approval, one edit that voids it, and the second approval that is submitted. The portal's own checks are the server-side half of rule 3: the graph checks first, then the portal checks again and refuses on its own.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor PO as Principal Officer
+  participant G as Graph · approval_gate
+  participant B as build_payload
+  participant A as Approval store
+  participant S as submit (code node)
+  participant P as filing_portal
+
+  B->>B: canonical_json(payload) → sha256 h1
+  B->>P: prepare_payload(payload)
+  P-->>B: PayloadPreview(sha256 = h1, form limits ok)
+  B->>G: interrupt(payload, h1, version 1)
+  G->>PO: show payload, h1, diff
+  PO-->>G: approve
+  G->>A: ApprovalRecord(h1, approver ≠ requester, expires_at, HMAC)
+
+  Note over PO,P: An edit after approval voids it
+  PO-->>G: edit (new narrative)
+  G->>A: void every approval for the case
+  G->>B: rebuild → version 2, sha256 h2
+  B->>P: prepare_payload(payload v2)
+  B->>G: interrupt(payload, h2, version 2)
+  PO-->>G: approve
+  G->>A: ApprovalRecord(h2)
+
+  G->>S: run submit
+  S->>S: re-hash the stored payload, must equal h2
+  S->>P: submit_approved_payload(approval_id, h2, key = case_id:h2)
+  P->>A: read the record (read-only)
+  P->>P: HMAC valid · same case · not void · not expired · approver ≠ requester
+  P->>P: re-hash the latest stored draft, must equal h2
+  alt every check passes
+    P-->>S: Receipt(ACK-SYN-…, h2)
+  else any hash differs
+    P-->>S: ToolError STALE_HASH
+  else record invalid
+    P-->>S: ToolError APPROVAL_INVALID
+  end
+  Note over S,P: Repeating the same key returns the same receipt. On a timeout, call get_receipt before any retry.
+```
+
 ## 3. Input guardrails (`auditguard/guardrails/input.py`)
 
 Order, each layer toggled in config (`guardrails.input.*`), all logged:

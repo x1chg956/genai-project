@@ -39,14 +39,30 @@ Phase 1 uses two documents with a few clauses each. The domain reviewer signs th
 
 ## Search (`regulatory_kb.search_passages`)
 
+```mermaid
+flowchart TB
+  q["query + as_of_date"] --> dec["decompose<br/>Phase 2 · LLM, temperature 0<br/>≤ 3 sub-queries"]
+  dec --> sq1["sub-query 1"] & sq2["sub-query 2"] & sq3["sub-query 3"]
+  subgraph PER["per sub-query"]
+    bm["BM25 top 20<br/>rank-bm25"]
+    vec["vector top 20<br/>bge-small · Qdrant"]
+  end
+  sq1 & sq2 & sq3 --> bm & vec
+  bm & vec --> rrf["Reciprocal Rank Fusion<br/>k = 60"]
+  rrf --> filt["version filter<br/>effective_from ≤ as_of_date<br/>and not superseded by as_of_date"]
+  filt --> rr["cross-encoder rerank<br/>ms-marco-MiniLM-L-6-v2"]
+  rr --> topk["top k · default 5"]
+  topk --> floor{"score ≥ score_floor?"}
+  floor -- yes --> ok(["status ok · passages with IDs"])
+  floor -- "none left" --> ns(["status no_support · []"])
+
+  classDef llm fill:#ece6fb,stroke:#6a4bd1,color:#1d1533
+  classDef code fill:#eef0f3,stroke:#6b7480,color:#1b1f24
+  class dec llm
+  class bm,vec,rrf,filt,rr,topk,floor code
 ```
-query → decompose (Phase 2: LLM splits into ≤3 sub-queries; temperature 0)
-      → for each sub-query: BM25 top 20 + vector top 20
-      → Reciprocal Rank Fusion (k = 60)
-      → metadata filter: effective_from ≤ as_of_date and (superseded_by is null or superseded after as_of_date)
-      → cross-encoder rerank → top k (default 5)
-      → drop below score_floor → [] with status "no_support"
-```
+
+Phase 1 runs only the BM25 branch, the version filter and the score floor (no decomposition, vectors, fusion or reranker). Each later step is one row of the Recall@5 staircase (E5), so its effect is measured on its own.
 
 Version preference is a metadata filter, not a prompt instruction. Retrieved text is returned inside a `Passage` model and wrapped in a data block by the caller.
 

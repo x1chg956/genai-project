@@ -17,9 +17,29 @@ These documents tell Claude Code (and the team) what to build. `CLAUDE.md` at th
 | 11 | `11_DEPLOYMENT_AND_CI.md` | Config, Compose, API, UI, metrics, CI |
 | 12 | `12_CONVENTIONS.md` | Code style, tests, errors, logging |
 | 13 | `13_MODEL_PROVIDERS.md` | Model endpoints: local server by default, per-role config, `llm-check` |
+| 14 | `14_MINIMUM_BAR_CHECKLIST.md` | Planning a phase, and before the final review: every course minimum-bar item, its phase, evidence and owner |
 | — | `PROGRESS.md` | Update after every task |
 | — | `KICKOFF_PROMPTS.md` | Prompts to paste into Claude Code, phase by phase |
 | — | `../.env.example` | Environment variable names (no secrets); copy to `.env` |
+
+## Diagrams
+
+Every diagram in these specs is Mermaid, with one colour legend (`03_ARCHITECTURE.md`, "Reading the diagrams"). Where to find them:
+
+| Diagram | Where |
+|---|---|
+| Phase roadmap and exit gates | `02_BUILD_PHASES.md` |
+| System architecture + numbered walkthrough | `03_ARCHITECTURE.md` §1 |
+| C1, C0 and C2 graphs | `03_ARCHITECTURE.md` §2 |
+| Case lifecycle states | `03_ARCHITECTURE.md` §5 |
+| Ledger tables (ER) and database access | `04_DATA_AND_RULES.md` §1 |
+| Search pipeline | `07_RETRIEVAL.md` |
+| Approval and submit sequence (`STALE_HASH`) | `08_APPROVAL_GUARDRAILS_HOOKS.md` §2 |
+| Reflexion loop | `09_MEMORY_AND_REFLEXION.md` |
+| Compose: dev Mac vs clean machine; tracing; evidence generators | `11_DEPLOYMENT_AND_CI.md` §2, §7, §8 |
+| Minimum bar by phase | `14_MINIMUM_BAR_CHECKLIST.md` |
+
+Generated from code (Phase 1 onward, `make docs-evidence`): `docs/graph_c0.md`, `graph_c1.md`, `graph_c2.md`, `tool_catalogue.md`.
 
 ## The build strategy in one paragraph
 

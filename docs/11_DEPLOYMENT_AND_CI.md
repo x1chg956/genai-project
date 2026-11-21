@@ -60,7 +60,27 @@ mcp:
 
 ## 2. Docker Compose (`infra/docker-compose.yml`, final state)
 
-Services: `postgres` (DBs `auditguard` + `groundtruth`, init script; published on host port **5433** so it never clashes with a local Postgres on 5432), `qdrant`, `mcp-transactions`, `mcp-aml-engine`, `mcp-regulatory-kb`, `mcp-filing-portal`, `app` (FastAPI: graph, hooks, metrics), `ui` (Chainlit), `prometheus`, `grafana` (provisioned dashboard + alert). Profile `langfuse`: `langfuse` + its DB. Health checks on all; pinned image tags; secrets from `.env`. `docker compose up --build` is the one command. Services that call models (`app`, `eval`) get `LLM_BASE_URL=http://host.docker.internal:8888/v1` and `extra_hosts: ["host.docker.internal:host-gateway"]`, because `127.0.0.1` inside a container is the container itself. The local model server runs on the host and is not part of Compose.
+Services: `postgres` (DBs `auditguard` + `groundtruth`, init script; published on host port **5433** so it never clashes with a local Postgres on 5432), `qdrant`, `mcp-transactions`, `mcp-aml-engine`, `mcp-regulatory-kb`, `mcp-filing-portal`, `app` (FastAPI: graph, hooks, metrics), `ui` (Chainlit), `prometheus`, `grafana` (provisioned dashboard + alert). Profile `langfuse`: `langfuse` + its DB. Health checks on all; pinned image tags; secrets from `.env`. `docker compose up --build` is the one command. Services that call models (`app`, `eval`) get `LLM_BASE_URL=http://host.docker.internal:8888/v1` and `extra_hosts: ["host.docker.internal:host-gateway"]`, because `127.0.0.1` inside a container is the container itself. On the development Mac the local model server (oMLX) runs on the host and is not part of Compose.
+
+Profile `llm` is for a clean machine with no oMLX (Linux or Windows, CPU is enough). It adds a containerised OpenAI-compatible model server (`llm` service, pinned image, model weights in a named volume) and points `LLM_BASE_URL_DOCKER` at it (`http://llm:<port>/v1`), so `docker compose --profile llm up --build` needs nothing on the host but Docker. Which server image and which quantisation of the configured models it serves is an open choice (see `PROGRESS.md`); whatever is chosen must pass `make llm-check` (tool calling and structured output) before it counts. Model IDs for the profile live in config, like every other model ID.
+
+```mermaid
+flowchart LR
+  subgraph HOST["Development Mac · docker compose up --build"]
+    omlx["oMLX on the host :8888"]
+    subgraph C1["Compose"]
+      app1["app · eval"]
+    end
+    app1 -- "host.docker.internal:8888" --> omlx
+  end
+  subgraph CLEAN["Clean machine · docker compose --profile llm up --build"]
+    subgraph C2["Compose"]
+      app2["app · eval"]
+      llm["llm service<br/>OpenAI-compatible server"]
+    end
+    app2 -- "http://llm:&lt;port&gt;/v1" --> llm
+  end
+```
 
 The held-out folder is mounted **only** into an `eval` one-off container, never into `app` or MCP containers.
 
@@ -96,3 +116,50 @@ Grafana panels: task success, rules fired, critic rejections, pending approvals,
 | nightly | schedule or manual | full evaluation with live models under a cost cap; thresholds from the agreed baseline. GitHub-hosted runners cannot reach your local model server: run this tier on a self-hosted runner on the machine that serves `:8888`, or point `LLM_BASE_URL` at a hosted provider for CI |
 
 Replay cache key: `(prompt_hash, model_id, params_hash, input_hash)`. A cache miss in the PR tier fails with "refresh the replay cache via the nightly/manual job". Keep one deliberately failed run and explain it in the experiment log.
+
+## 7. Tracing (`auditguard/llm.py`)
+
+Every model call is traced from Phase 0 onward. A run without a trace ID fails (`14_MINIMUM_BAR_CHECKLIST.md`, evaluation and monitoring).
+
+- Backend from config: `tracing.backend: ${TRACING_BACKEND:-langsmith}` (`langsmith` | `langfuse` | `none`) and `tracing.project: ${TRACING_PROJECT:-auditguard}`. LangSmith is the default; confirm the choice in `PROGRESS.md`. Langfuse runs self-hosted under the Compose profile `langfuse`. Keys (`LANGSMITH_API_KEY`, `LANGFUSE_*`) come from `.env` only.
+- `tracing_callbacks(settings)` returns the handler for the chosen backend. `get_model`, `get_structured_model` and `get_guard` attach it, so no other module sets up tracing.
+- Each graph run is one trace. Its metadata holds `case_id`, `run_id`, the experiment arm, `config_hash` and model IDs; the trace ID is written into the run record next to them.
+- `none` is allowed only for unit tests with a fake model. A live run (`run-case`, `eval`, `llm-check`) with `none` refuses to start.
+- What a trace may contain: pseudonymised prompts and scrubbed tool results only, never a key, never a de-pseudonymised value. The data is synthetic, but the same rule would apply to real data, so it is enforced now.
+- Phase 0 check: `make llm-check` sends one call and prints the trace ID it produced.
+
+```mermaid
+flowchart LR
+  node["graph node or agent"] --> llm["auditguard/llm.py<br/>get_model · get_structured_model · get_guard"]
+  llm -- "callbacks = tracing_callbacks(settings)" --> backend[("LangSmith (default)<br/>or Langfuse (profile)")]
+  llm --> server["model server"]
+  run["run record<br/>runs/&lt;run_id&gt;/"] -. "trace_id, config_hash, model IDs" .-> backend
+  harness["eval harness"] -- "no trace_id → run fails" --> run
+```
+
+## 8. Evidence generators (`make docs-evidence`)
+
+Some of the review evidence is generated from code, so it cannot drift from what runs. `make docs-evidence` runs every generator; Phase 0 adds the target as a stub, and each later phase plugs its scripts in.
+
+| Script | Writes | From | Fails when |
+|---|---|---|---|
+| `scripts/gen_tool_catalogue.py` | `docs/tool_catalogue.md` | each MCP server built in memory (`build_server` with fakes, no database), `list_tools` | a tool has no R/C/W label, no input or output schema, or no test |
+| `scripts/export_graphs.py` | `docs/graph_c0.md`, `graph_c1.md`, `graph_c2.md` (those that exist) | each compiled graph, built with a fake model and an in-memory checkpointer, `get_graph(xray=1).draw_mermaid()` | a graph fails to compile |
+
+Conventions:
+- **Labels.** Each tool declares its kind as a FastMCP tag: `read`, `compute` or `write`, matching the R/C/W column in `05_MCP_SERVERS.md`. Read and compute tools also set the MCP `readOnlyHint` annotation. The catalogue checks that tag and table agree.
+- **Tests per tool.** A tool counts as tested when at least one test under `tests/mcp_servers/` carries `@pytest.mark.tool("<tool_name>")`. The generator collects these markers (`pytest --collect-only`) and fails on any tool without one.
+- **Generated files** start with a "generated by …, do not edit" line and are committed. The CI push tier reruns `make docs-evidence` and fails on `git diff --exit-code` over them, so a tool or graph change without regenerated evidence fails CI.
+- The hand-written diagrams in `03_ARCHITECTURE.md` are the specification; the generated `graph_*.md` files are the evidence that the code matches it.
+
+```mermaid
+flowchart LR
+  servers["mcp_servers/*/server.py<br/>build_server(fakes)"] --> cat["gen_tool_catalogue.py"]
+  tests["tests/mcp_servers<br/>@pytest.mark.tool(name)"] --> cat
+  cat --> tc["docs/tool_catalogue.md"]
+  graphs["auditguard/graph/*.py<br/>compiled with a fake model"] --> exp["export_graphs.py"]
+  exp --> gm["docs/graph_c0.md · graph_c1.md · graph_c2.md"]
+  tc & gm --> ci{"CI push tier<br/>git diff --exit-code"}
+  ci -- changed --> fail(["fail: regenerate evidence"])
+  ci -- same --> pass(["pass"])
+```

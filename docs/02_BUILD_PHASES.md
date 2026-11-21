@@ -2,17 +2,35 @@
 
 **Strategy:** prove the whole loop with one agent on a tiny slice, then make it complete, then split it into a team. Each phase ends with an exit gate. Do not start a phase until the previous gate passes. Each phase lists what **not** to build yet. Don't build ahead, because that is how scope grows.
 
+```mermaid
+flowchart TB
+  subgraph ST1["Stage 1 · one ReAct agent"]
+    direction LR
+    P0["Phase 0 · Skeleton<br/>repo, config, compose stub,<br/>CI stub, tracing"]
+    P1["Phase 1 · Tiny slice<br/>1 alert → receipt, 3 rules,<br/>2 docs, CLI approval"]
+    P2["Phase 2 · Full scale = C1<br/>rules 01–08, hybrid RAG,<br/>harness, guardrails v1"]
+    P3["Phase 3 · Fixed workflow = C0<br/>same tools; first E1<br/>numbers C0 vs C1"]
+    P0 --> P1 --> P2 --> P3
+  end
+  subgraph ST2["Stage 2 · supervisor and specialists"]
+    direction LR
+    P4["Phase 4 · Team = C2<br/>supervisor, specialists,<br/>plan, replan, critic"]
+    P5["Phase 5 · Memory + Reflexion<br/>long-term store,<br/>lessons, freeze"]
+    P6["Phase 6 · Security<br/>layered guardrails,<br/>hooks v2, red-team runner"]
+    P7["Phase 7 · Deployment<br/>FastAPI SSE, Chainlit,<br/>Grafana, alert, CI tiers"]
+    P8["Phase 8 · Experiments<br/>E1–E6, three repeats,<br/>report inputs"]
+    P4 --> P5 --> P6 --> P7 --> P8
+  end
+  P3 --> P4
+  P2 -. tag c1-frozen .-> C1(["C1 baseline"])
+  P3 -.-> C0(["C0 baseline"])
+  P4 -.-> C2(["C2 team"])
+
+  classDef arm fill:#e2edf9,stroke:#2e6db3,color:#0d2440
+  class C0,C1,C2 arm
 ```
-Phase 0  Skeleton                 repo, config, compose stub, CI stub
-Phase 1  Single agent, tiny slice  1 alert → receipt, 3 rules, 2 docs, CLI approval        ← Stage 1
-Phase 2  Single agent, full scale  rules 01–08, hybrid RAG, harness, guardrails v1  = C1
-Phase 3  Fixed-workflow baseline   C0, same tools; first E1 numbers C0 vs C1
-Phase 4  Multi-agent team          supervisor + specialists, plan, replan, critic   = C2  ← Stage 2
-Phase 5  Memory and Reflexion      long-term store, lessons, freeze
-Phase 6  Security                  layered guardrails, hooks, red-team runner
-Phase 7  Deployment and operations FastAPI streaming, Chainlit, Grafana, alert, CI tiers
-Phase 8  Experiments and evidence  E1–E6, three repeats, report inputs
-```
+
+Each arrow is an exit gate: the next phase starts only when the previous phase's acceptance checks pass and a person ticks the gate in `PROGRESS.md`. The three rounded boxes are the experiment arms that E1 compares; they are three graphs over one set of tools.
 
 Shared from Phase 1 onward, never forked: the four MCP servers, the Pydantic schemas, the rule engine, the approval code, the evaluation harness. C0, C1 and C2 are three graphs over the same tools.
 
@@ -29,6 +47,8 @@ Tasks
 4. `infra/docker-compose.yml` with Postgres (two databases: `auditguard`, `groundtruth`), Qdrant. App services are added later.
 5. `.github/workflows/ci.yml`: lint + tests on push.
 6. `docs/PROGRESS.md` exists; first entry written.
+7. Tracing wired in `llm.py` per `11_DEPLOYMENT_AND_CI.md` §7 (default backend LangSmith; confirm the choice in `PROGRESS.md`).
+8. Makefile target `docs-evidence` (stub that the later scripts plug into).
 
 Acceptance
 - `uv sync && make lint && make test` pass on a clean clone.
@@ -36,6 +56,7 @@ Acceptance
 - `python -c "from auditguard.llm import get_model; print(get_model('specialist'))"` works (no call made).
 - `make llm-check` passes for the local server (`Qwen3.5-4B-4bit` at `http://127.0.0.1:8888/v1`): model listed, chat with thinking off, **tool calling** and **structured output** all work. These were verified by hand on 21 Nov 2026; if any fails now, stop and report.
 - Setting `LLM_BASE_URL` in `.env` changes the endpoint with no code change.
+- A single test model call appears in the tracing backend with a trace ID.
 
 Do not build yet: any agent, MCP server, UI.
 
@@ -58,10 +79,11 @@ Tasks
 3. **Rule engine v0**: rules 01, 04, 07 as pure functions + YAML + ≥5 unit tests each (fires, does not fire, boundary, empty, data defect).
 4. **MCP servers v0** (FastMCP, stdio): `transactions` (get_transactions, get_account_summary, get_counterparty_flows), `aml_engine` (evaluate_rules, get_rule_metadata), `regulatory_kb` (search_passages BM25, get_passage), `filing_portal` (prepare_payload, submit_approved_payload, get_receipt) with its own SQLite. One happy-path and one error test per tool.
 5. **Code nodes**: `ingest_validate` (calls transactions, returns `LedgerSlice` + `DataQualityReport`), `build_payload` (canonical JSON + SHA-256), `submit` (verifies approval, calls the portal).
-6. **Single ReAct agent** (`agents/single.py`, `prompts/single_agent.md`): tools = the read and compute tools above. It returns `IndicatorSet`, `HypothesisList`, `PassageSet` and a `DraftReport` as structured output. It has **no** write tool.
-7. **Graph** (`graph/single_agent.py`): `ingest_validate → agent → decision_gate (interrupt) → build_payload → approval_gate (interrupt) → submit → END`, and `decision_gate → close_no_file → END`. Checkpointer on.
+6. **Single ReAct agent** (`agents/single.py`, `prompts/single_agent.md`): tools = the read and compute tools above. It returns one `SingleAgentResult` (indicators, hypotheses, passages and a `DraftReport`) as structured output, per `03_ARCHITECTURE.md` §2. It has **no** write tool.
+7. **Graph** (`graph/single_agent.py`): `ingest_validate → agent → decision_gate (interrupt) → build_payload → approval_gate (interrupt) → submit → END`, and `decision_gate → close_no_file → END`. Checkpointer on. Diagram: `03_ARCHITECTURE.md` §2 (C1); the approval sequence is in `08_APPROVAL_GUARDRAILS_HOOKS.md` §2.
 8. **CLI** (`make run-case CASE=...`): prints the plan-less trace, shows the payload and hash at the approval gate, accepts `approve | edit | reject`; `edit` opens the narrative in `$EDITOR`, recomputes the hash and requires a fresh approval.
-9. **Mini evaluation**: 6 development case scaffolds (2 per typology plus 2 payroll look-alikes). Role 1 fills in the expected outcomes. A script checks disposition, that every cited ID exists, and that every number in the draft equals a tool output.
+9. **Evidence generators v1**: `scripts/gen_tool_catalogue.py` and `scripts/export_graphs.py` per `11_DEPLOYMENT_AND_CI.md` §8; commit `docs/tool_catalogue.md` and `docs/graph_c1.md`.
+10. **Mini evaluation**: 6 development case scaffolds (2 per typology plus 2 payroll look-alikes). Role 1 fills in the expected outcomes. A script checks disposition, that every cited ID exists, and that every number in the draft equals a tool output.
 
 Acceptance (exit gate)
 - `make run-case CASE=ALR-SYN-0001` reaches a receipt after a CLI approval.
@@ -69,6 +91,7 @@ Acceptance (exit gate)
 - Killing the process at the decision gate and rerunning with the same `thread_id` resumes without re-running ingest.
 - The mini evaluation runs on all 6 cases and prints a table; numbers-match = 100%.
 - Grep proves no float is used for money and no model call computes an amount.
+- Every run in the mini evaluation has a trace ID; `docs/tool_catalogue.md` lists all Phase 1 tools with schemas and their tests; `docs/graph_c1.md` shows the C1 graph.
 - The mini-evaluation table includes, per case: tool calls, structured-output retries, invalid tool calls, latency and tokens.
 
 Do not build yet: supervisor, specialists, critic, memory, Reflexion, guardrail models, UI, Docker services for the app.
@@ -108,7 +131,7 @@ Do not build yet: team, critic agent, memory, Reflexion, Llama Guard, UI.
 
 Tasks
 1. `graph/fixed_workflow.py`: ingest → evaluate all rules → one retrieval call per fired rule → one drafting call with a fixed template → decision and approval gates → submit.
-2. `configs/experiments/c0_fixed.yaml`.
+2. `configs/experiments/c0_fixed.yaml`; export `docs/graph_c0.md`.
 3. First E1 numbers on dev cases: C0 vs C1, same model, same budget.
 
 Acceptance
@@ -131,13 +154,15 @@ Tasks
 7. Evidence Critic: code checks first, then judge; at most 2 revisions (self-correction loop).
 8. Conditional edges exactly as in `03_ARCHITECTURE.md` §4.
 9. Seed three replan cases: partial coverage, refuted first hypothesis, tool timeout.
-10. `configs/experiments/c2_team.yaml`; E1 on dev cases: C0 vs C1 vs C2.
+10. `configs/experiments/c2_team.yaml` and `configs/experiments/c1_strong.yaml` (single agent on the supervisor's model); E1 on dev cases: C0 vs C1 vs C1-strong vs C2.
+11. Export `docs/graph_c2.md` (with subgraphs) and regenerate the tool catalogue.
 
 Acceptance
 - A trace shows plan v1 → refuted hypothesis → plan v2 → recovery.
 - The critic catches a planted wrong amount and the second draft passes.
 - Kill-and-resume works mid-investigation.
-- E1 dev table with C0, C1 and C2.
+- E1 dev table with C0, C1, C1-strong and C2.
+- `docs/graph_c2.md` shows supervisor, specialists, the critic loop and both gates.
 
 Do not build yet: memory, Reflexion, Llama Guard, UI polish.
 
@@ -185,7 +210,8 @@ Tasks
 5. CI tiers: push, pull-request replay smoke run, nightly live evaluation under a cost cap.
 
 Acceptance
-- `docker compose up --build` on a clean machine brings everything up; README steps work.
+- `docker compose --profile llm up --build` on a clean machine (no oMLX, ideally not a Mac) brings everything up, `make llm-check` passes against the containerised server, and one case runs end to end; README steps work.
+- On the development Mac, `docker compose up --build` uses the host oMLX server.
 - Stopping an MCP server fires the alert.
 - One deliberately failed CI run is kept with an explanation.
 

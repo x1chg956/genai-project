@@ -123,6 +123,8 @@ app:
 
 Apply the same to any service that calls a model (app, eval). Outside Docker, the default `http://127.0.0.1:8888/v1` is used.
 
+On a clean machine without oMLX, the Compose profile `llm` runs an OpenAI-compatible model server as a container and sets `LLM_BASE_URL_DOCKER` to it (`11_DEPLOYMENT_AND_CI.md` §2). It must pass `make llm-check` like the local server does.
+
 ## 6. Fairness and the course requirements
 
 - **Judge from a different model family.** The course guide requires the judge to come from a different family than the agents. The default judge is the local Gemma model (Google family, not Qwen); OpenRouter is the hosted alternative. `make llm-check` warns when judge and specialist report the same family.

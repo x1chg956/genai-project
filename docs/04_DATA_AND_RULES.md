@@ -8,15 +8,89 @@
 | Postgres `groundtruth` | case_labels, scenario_params | Evaluation harness and generator only. **No MCP server, no agent.** Separate user and password |
 | Portal SQLite (`filing_portal.db_path`, default `var/portal.db`) | drafts, submissions, receipts | filing_portal server only |
 
-Ledger tables (minimum columns):
+Ledger tables (minimum columns). Money columns are `NUMERIC`, never float; `ts` is `TIMESTAMPTZ` stored in UTC.
 
+```mermaid
+erDiagram
+  customer ||--o{ account : holds
+  account ||--o{ transaction : "has"
+  account ||--o{ link : "linked from"
+  account ||--o{ alert : "alerted on"
+  customer ||--o{ prior_report : "subject of"
+
+  customer {
+    text customer_token PK
+    text segment
+    text kyc_risk_band
+    numeric declared_monthly_turnover
+    timestamptz onboarded_at
+  }
+  account {
+    text account_token PK
+    text customer_token FK
+    text type
+    timestamptz opened_at
+    text status
+  }
+  transaction {
+    text txn_id PK
+    text account_token FK
+    timestamptz ts "UTC"
+    numeric amount "NUMERIC(18,2)"
+    text direction
+    text channel
+    text counterparty_token
+    text memo "untrusted text"
+  }
+  link {
+    text account_token FK
+    text linked_account_token
+    text link_type "holder, introducer, phone, device"
+  }
+  alert {
+    text alert_id PK
+    text account_token FK
+    text scenario_code
+    timestamptz detected_at
+    text profile
+  }
+  prior_report {
+    text report_id PK
+    text subject_token FK
+    timestamptz filed_at
+    text type
+    numeric amount
+    text ack_id
+  }
 ```
-customer(customer_token PK, segment, kyc_risk_band, declared_monthly_turnover NUMERIC, onboarded_at)
-account(account_token PK, customer_token FK, type, opened_at, status)
-transaction(txn_id PK, account_token FK, ts TIMESTAMPTZ, amount NUMERIC(18,2), direction, channel, counterparty_token, memo TEXT)
-link(account_token, linked_account_token, link_type)          -- holder, introducer, phone, device
-alert(alert_id PK, account_token, scenario_code, detected_at, profile)
-prior_report(report_id PK, subject_token, filed_at, type, amount NUMERIC, ack_id)
+
+Who can reach which database:
+
+```mermaid
+flowchart LR
+  subgraph APPDB["Postgres auditguard"]
+    ledger[("ledger.*")]
+    appt[("cases · approvals · audit_log<br/>checkpoints · store")]
+  end
+  gt[("Postgres groundtruth<br/>case_labels · scenario_params")]
+  sq[("Portal SQLite")]
+
+  txs["transactions MCP"] -- "auditguard_ro · SELECT, read-only tx" --> ledger
+  aml["aml_engine MCP"] -- "auditguard_ro" --> ledger
+  app["app · graph · hooks"] -- "POSTGRES_USER (app role)" --> appt
+  portal["filing_portal MCP"] --> sq
+  gen["generator"] --> ledger
+  gen --> gt
+  harness["eval harness"] --> gt
+  txs -. "permission denied" .-x gt
+  aml -. "permission denied" .-x gt
+
+  classDef store fill:#e2edf9,stroke:#2e6db3,color:#0d2440
+  classDef sealed fill:#f4f4f4,stroke:#8a8a8a,stroke-dasharray:5 3,color:#2a2a2a
+  classDef code fill:#eef0f3,stroke:#6b7480,color:#1b1f24
+  class ledger,appt,sq store
+  class gt sealed
+  class txs,aml,app,portal,gen,harness code
 ```
 
 `memo` is untrusted text and is used for injection tests.

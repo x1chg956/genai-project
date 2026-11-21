@@ -13,17 +13,18 @@ Claude Code appends one line per completed task. Humans tick the exit gates.
 | 2026-11-21 | 1 | 2. Generator v0 | `data/generator/`: typology spec schema + ONE example entry (role 1 writes the rest), seeded pure generator (tiny: 10 accounts, 60 days), fictional names + deny-list, writer to `ledger.*` (auditguard) and `groundtruth.*` (groundtruth), `make seed`. Verified on a throwaway Postgres: rerun replaces data, NUMERIC money, UTC timestamps, app role denied CONNECT to groundtruth | `tests/generator` (27) | Claude Code |
 | 2026-11-21 | 1 | 4. MCP servers v0 | Four FastMCP 4.1.8 servers at their Phase 1 tool sets: `transactions` (get_transactions, get_account_summary, get_counterparty_flows), `aml_engine` (evaluate_rules, get_rule_metadata), `regulatory_kb` (search_passages BM25, get_passage), `filing_portal` (prepare_payload, submit_approved_payload, get_receipt; own SQLite). Shared `ToolGuard` middleware: HMAC agent tokens + per-caller allow-list + case scope; every failure a structured `ToolError` (isError). Also `auditguard/approval/canonical.py` + `records.py` (HMAC approval records, Phase 1 SQLite store), `auditguard/security/tokens.py`, `auditguard/ledger_ref.py`, read-only DB role `auditguard_ro`. Verified on a throwaway Postgres: app data readable, groundtruth `permission denied`, writes refused, stdio chain get_transactions → evaluate_rules works | `tests/mcp_servers` (87: happy + invalid per tool, wrong token, out of scope, stale hash, self-approval, expired, idempotent, transport parity in-memory/stdio/HTTP, groundtruth unreachable static + 3 live), `tests/approval` (19), `tests/security` (9), `tests/test_ledger_ref.py` (7) | Claude Code |
 | 2026-11-21 | 0 | 5. CI | `.github/workflows/ci.yml`: uv sync --locked, make lint, make test on push and PR | — | Claude Code |
+| 2026-11-21 | docs | Minimum bar + build-phase update + diagrams | Added `docs/14_MINIMUM_BAR_CHECKLIST.md`. `docs/02` updated: Phase 0 tasks 7–8 (tracing, `docs-evidence` stub), Phase 1 task 9 (evidence generators, so the mini evaluation is now task 10), `graph_c0/c2` exports, the C1-strong arm, the clean-machine `--profile llm` gate; Phase 1 task 6 now says `SingleAgentResult`. New `docs/11` §7 (tracing) and §8 (evidence generators) plus the `llm` Compose profile in §2 and `docs/13` §5. Every ASCII diagram is now Mermaid with a legend and walkthroughs: roadmap (02), architecture + 14-step walkthrough, C1/C0/C2 graphs and lifecycle states (03), ledger ER + DB access (04), search pipeline (07), approval/submit sequence (08), Reflexion loop (09), Compose/tracing/evidence (11), minimum bar by phase (14). `docs/architecture_diagram.md` folded into 03 §1. Index and kickoff prompts updated | all 14 diagrams parse with mermaid 11.4.1 | Claude Code |
 
 ## Exit gates
 
-- [ ] Phase 0: skeleton installs, lints, tests; Postgres and Qdrant healthy
-- [ ] Phase 1: one alert → receipt with CLI approval; edit voids approval; resume works; 6 dev cases run, numbers-match 100%
+- [ ] Phase 0: skeleton installs, lints, tests; Postgres and Qdrant healthy; one traced model call with a trace ID (tasks 7–8 added 2026-11-21, not yet built)
+- [ ] Phase 1: one alert → receipt with CLI approval; edit voids approval; resume works; 6 dev cases run, numbers-match 100%; every run traced; `docs/tool_catalogue.md` and `docs/graph_c1.md` generated
 - [ ] Phase 2: rules 01–08 + property tests; Recall@5 staircase; harness on all dev cases; ground truth unreachable; tag `c1-frozen`
 - [ ] Phase 3: C0 runs; first C0 vs C1 table in experiment log
-- [ ] Phase 4: plan → refuted hypothesis → replan trace; critic catches planted error; E1 dev table C0/C1/C2
+- [ ] Phase 4: plan → refuted hypothesis → replan trace; critic catches planted error; E1 dev table C0/C1/C1-strong/C2; `docs/graph_c2.md`
 - [ ] Phase 5: stale-memory trap passes; one rejected lesson logged; playbook frozen
 - [ ] Phase 6: E2 on dev attacks; every defence layer toggleable
-- [ ] Phase 7: clean-machine `docker compose up --build`; alert fires; one failed CI run explained
+- [ ] Phase 7: clean-machine `docker compose --profile llm up --build` + llm-check + one case; dev Mac uses host oMLX; alert fires; one failed CI run explained
 - [ ] Phase 8: judge kappa; E1–E6 held-out × 3; results table filled
 
 ## Decisions and open questions
@@ -49,4 +50,7 @@ Claude Code appends one line per completed task. Humans tick the exit gates.
 | | No corpus yet: regulatory_kb needs `corpus/processed/passages.jsonl` from `make ingest` (2 docs for Phase 1; manifest needs domain-reviewer sign-off). Tests use a synthetic fixture corpus | Domain reviewer | open |
 | | Ingest data defects (duplicates, reversals) vs `ledger_ref`: evaluate_rules reads raw rows and rejects duplicates; when generator v1 adds defects (Phase 2), the ref must name the cleaned slice | | open (Phase 2) |
 | | Cash threshold T for R01 tagged with its PML Rules source | Domain reviewer | open |
-| | LangSmith or Langfuse | | open |
+| | LangSmith or Langfuse: docs/02 Phase 0 task 7 now defaults to LangSmith; confirm (LangSmith sends traces off the machine; Langfuse can run self-hosted) | | open (Phase 0 task 7) |
+| 2026-11-21 | Specs filled in for the new build-phase references (review): `docs/11` §7 tracing (backend from config, a live run refuses `none`, trace ID in every run record) and §8 evidence generators (FastMCP tags `read`/`compute`/`write`, `@pytest.mark.tool` markers, CI diff check); case-lifecycle transitions drawn in `docs/03` §5 from the §2 routes | | review |
+| | Phase 0 tasks 7–8 (tracing, `docs-evidence` stub) are not built yet; the Phase 1 MCP tools carry no R/C/W tags or test markers yet (needed by Phase 1 task 9) | | open |
+| | `llm` Compose profile: which containerised OpenAI-compatible server and which model build run on a clean machine (must pass llm-check: tool calling + structured output) | | open (Phase 7) |

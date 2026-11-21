@@ -25,17 +25,34 @@ Rules
 
 Runs on **development cases only** (the runner refuses any path under `HELDOUT_DIR`).
 
-```
-for repeat in 1..R:
-  for case in dev_cases:
-    run = graph.invoke(case)                 # current playbook
-    score = checkers(run, case)              # code first; judge only where code cannot decide
-    if score.failed:
-      lesson = reflect(run.trace, score)     # one short lesson, structured
-      queue(lesson, status="proposed")
-review CLI: accept | edit | reject --reason   (human)
-playbook = accepted lessons
-make freeze-playbook → git tag playbook-<date> + sha256 of playbook.jsonl
+```mermaid
+flowchart TB
+  subgraph LOOP["for repeat in 1..R, for case in dev_cases"]
+    run["run = graph.invoke(case)<br/>with the current playbook"]
+    score["score = checkers(run, case)<br/>code first; judge only where code cannot decide"]
+    failed{"failed?"}
+    reflect["reflect(run.trace, score)<br/>one short structured lesson"]
+    queue[("review queue<br/>status = proposed")]
+    run --> score --> failed
+    failed -- yes --> reflect --> queue
+    failed -- no --> next(["next case"])
+  end
+  queue --> review{{"human review CLI<br/>accept · edit · reject --reason"}}
+  review -- "accept or edit" --> pb[("playbook.jsonl<br/>accepted lessons")]
+  review -- reject --> log[("review log<br/>with reason")]
+  pb -. used by later repeats .-> run
+  pb --> freeze["make freeze-playbook<br/>git tag playbook-&lt;date&gt; + sha256"]
+  freeze --> held(["held-out run · E3<br/>playbook fixed"])
+  heldout[["HELDOUT_DIR"]] -. "runner refuses" .-x run
+
+  classDef llm fill:#ece6fb,stroke:#6a4bd1,color:#1d1533
+  classDef control fill:#fde3da,stroke:#cf4a24,color:#3a1307
+  classDef code fill:#eef0f3,stroke:#6b7480,color:#1b1f24
+  classDef store fill:#e2edf9,stroke:#2e6db3,color:#0d2440
+  class run,reflect llm
+  class review,freeze control
+  class score,failed code
+  class queue,pb,log store
 ```
 
 Lesson schema:
