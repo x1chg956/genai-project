@@ -1,6 +1,6 @@
 # AuditGuard developer commands (CLAUDE.md "Commands"). Keep every target working.
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format llm-check seed ingest run-case eval up down ps db-bootstrap docs-evidence
+.PHONY: help install test lint format llm-check seed ingest run-case mini-eval eval up down ps db-bootstrap docs-evidence
 
 # An unrelated activated virtualenv must not leak into uv's project environment.
 unexport VIRTUAL_ENV
@@ -51,6 +51,9 @@ ingest:  ## fetch + index corpus (Phase 1)
 run-case:  ## run one case, e.g. make run-case CASE=ALR-SYN-0001 [THREAD=RUN-...] to resume
 	@test -n "$(CASE)" || { echo "usage: make run-case CASE=ALR-SYN-0001 [THREAD=...]"; exit 2; }
 	$(UV) python -m auditguard.cli run-case --case $(CASE) $(if $(THREAD),--thread $(THREAD))
+
+mini-eval:  ## Phase 1 mini evaluation on eval/cases/dev/phase1.jsonl (live model, needs make seed)
+	$(UV) python -m eval.mini $(ARGS)
 
 eval:  ## run the evaluation harness, e.g. make eval CONFIG=... SPLIT=dev (Phase 2)
 	@echo "make eval: not implemented until Phase 2 (eval/harness.py, docs/10 §3)"; exit 1
