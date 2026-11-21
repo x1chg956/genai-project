@@ -5,12 +5,15 @@ description = "Evidence-grounded assistant for AML alert investigation and STR p
 readme = "CLAUDE.md"
 requires-python = ">=3.11"
 dependencies = [
+    "fastmcp==4.1.8",
     "httpx==0.28.1",
     "langchain-openai==1.8.5",
+    "langchain[mcp]==1.4.9",
     "psycopg[binary]==3.3.8",
     "pydantic==2.14.4",
     "python-dotenv==1.2.4",
     "pyyaml==6.0.4",
+    "rank-bm25==0.2.2",
 ]
 
 [build-system]
@@ -30,13 +33,17 @@ select = ["E", "F", "W", "I", "B", "UP", "N", "S", "SIM", "RUF"]
 ignore = []
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+"tests/**" = ["S101", "S105", "S106"]   # *_token fields are synthetic identifiers, not secrets
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
 files = ["auditguard", "mcp_servers", "scripts", "data"]
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["rank_bm25"]          # untyped; used only in regulatory_kb/index.py
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
