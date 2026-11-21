@@ -10,7 +10,13 @@ from auditguard.schemas.ledger import (
     LedgerSlice,
     Transaction,
 )
-from auditguard.schemas.report import DraftReport, DraftSections, DraftSentence, SingleAgentResult
+from auditguard.schemas.report import (
+    DraftReport,
+    DraftSections,
+    DraftSentence,
+    SingleAgentAnswer,
+    SingleAgentResult,
+)
 from auditguard.schemas.rules import RuleMeta, RuleResult
 
 __all__ = [
@@ -33,6 +39,7 @@ __all__ = [
     "Receipt",
     "RuleMeta",
     "RuleResult",
+    "SingleAgentAnswer",
     "SingleAgentResult",
     "ToolError",
     "Transaction",

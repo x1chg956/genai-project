@@ -47,3 +47,12 @@ class SingleAgentResult(Model):
     hypotheses: list[Hypothesis]
     passages: list[Passage]
     draft: DraftReport
+
+
+class SingleAgentAnswer(Model):
+    """What the single agent's model returns. Code adds the indicators and passage objects
+    from the tool records, so the model can neither invent nor alter a rule result."""
+
+    hypotheses: list[Hypothesis]
+    passage_ids: list[str] = Field(default_factory=list)
+    draft: DraftReport
