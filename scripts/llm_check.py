@@ -3,10 +3,12 @@
 For every role it checks, as applicable: the model is listed, plain chat, tool calling,
 structured output (recording which method works), context length, thinking off, and for the
 guard two fixed probes. Checks run once per (provider, model) and are reused across roles.
-Prints a pass/fail table. Never prints an API key.
+Then one traced call is sent and read back from the tracing backend (docs/11 §7); its trace
+ID is printed. Prints a pass/fail table. Never prints an API key.
 
 Exit code is non-zero when a required check fails for a core role (supervisor, specialist,
-decomposer). Judge and guard failures are warnings unless --strict is given.
+decomposer) or when the trace check fails. Judge and guard failures are warnings unless
+--strict is given.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal
+from uuid import uuid4
 
 import httpx
 from langchain_core.messages import AIMessage
@@ -26,6 +29,7 @@ from pydantic import BaseModel
 from auditguard.config import ConfigError, Settings, StructuredMethod, load_settings
 from auditguard.guardrails.llama_guard import load_template, parse_verdict, render
 from auditguard.llm import get_guard, get_model
+from auditguard.tracing import confirm_trace, flush_traces, require_live_tracing, trace_config
 
 CORE_ROLES = ("supervisor", "specialist", "decomposer")
 ROLES = (*CORE_ROLES, "judge", "guard")
@@ -199,6 +203,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"config error: {exc}")
         return 2
 
+    tracing_label = f"{settings.tracing.backend}, project {settings.tracing.project!r}"
+    trace_problem: str | None = None
+    try:
+        require_live_tracing(settings)
+    except ConfigError as exc:
+        trace_problem = str(exc)
+        # Model checks still run, untraced, so the table shows what else works.
+        settings = settings.model_copy(
+            update={"tracing": settings.tracing.model_copy(update={"backend": "none"})}
+        )
+
     listings: dict[str, list[str] | Exception] = {}
     cache: dict[tuple[str, str, str], ModelReport] = {}
     rows: list[tuple[str, str, str, ModelReport, set[str]]] = []
@@ -248,8 +263,40 @@ def main(argv: list[str] | None = None) -> int:
         report.checks["listed"] = Check("PASS")
         rows.append((role, model_cfg.provider, model_cfg.id, report, required))
 
+    trace = (
+        Check("FAIL", trace_problem) if trace_problem else _run(lambda: check_trace(rows, settings))
+    )
     exit_code = _print_table(rows, settings, args.strict)
+    print(f"\nTracing ({tracing_label}): {trace.status} {trace.detail}")
+    if trace.status == "FAIL":
+        print("FAIL: a live run needs a trace ID (docs/11 §7); fix tracing before running cases.")
+        return 1
     return exit_code
+
+
+def check_trace(
+    rows: list[tuple[str, str, str, ModelReport, set[str]]], settings: Settings
+) -> Check:
+    """Send one traced call on the first core role whose chat check passed; read it back."""
+    role = next(
+        (
+            r
+            for r, _p, _m, rep, _req in rows
+            if r in CORE_ROLES and rep.checks.get("chat", Check("FAIL")).status == "PASS"
+        ),
+        None,
+    )
+    if role is None:
+        return Check("FAIL", "no core role passed chat, so no traced call could be made")
+    trace_id = uuid4()
+    config = trace_config(
+        settings, run_id=trace_id, run_name="llm-check", metadata={"check": "trace", "role": role}
+    )
+    get_model(role, settings).invoke("Reply with exactly OK", config=config)
+    flush_traces()
+    if not confirm_trace(settings, trace_id):
+        return Check("FAIL", f"trace_id={trace_id} sent but not found in the backend")
+    return Check("PASS", f"trace_id={trace_id} (role {role})")
 
 
 def _print_table(

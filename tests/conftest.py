@@ -16,6 +16,7 @@ TEST_ENV = {
     "LEDGER_RO_PASSWORD": "test-ro-pw",
     "MCP_TOKEN_KEY": "test-mcp-token-key",
     "APPROVAL_HMAC_KEY": "test-approval-hmac-key",
+    "TRACING_BACKEND": "none",
 }
 
 

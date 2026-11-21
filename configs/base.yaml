@@ -40,6 +40,12 @@ prompts:
 
 graph: c1                                      # c0 | c1 | c2
 
+tracing:                                       # docs/11 §7: every model call traced; live runs refuse "none"
+  backend: ${TRACING_BACKEND:-langsmith}       # langsmith | langfuse (Phase 7 profile) | none (unit tests only)
+  project: ${TRACING_PROJECT:-auditguard}
+  endpoint: ${LANGSMITH_ENDPOINT:-https://api.smith.langchain.com}
+  api_key: ${LANGSMITH_API_KEY:-}
+
 budgets:
   case: {steps: 12, tool_calls: 20, tokens: 60000, seconds: 180, cost_usd: "0.50"}
   critic_revisions: 2

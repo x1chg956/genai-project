@@ -149,6 +149,13 @@ class Guardrails(_Strict):
     output: OutputGuardrails
 
 
+class TracingSettings(_Strict):
+    backend: Literal["langsmith", "langfuse", "none"]
+    project: str
+    endpoint: str
+    api_key: OptSecret = None
+
+
 class ShortTermMemory(_Strict):
     keep_turns: int
 
@@ -203,6 +210,7 @@ class Settings(_Strict):
     models: dict[str, ModelSettings]
     prompts: dict[str, str]
     graph: Literal["c0", "c1", "c2"]
+    tracing: TracingSettings
     budgets: Budgets
     retrieval: RetrievalSettings
     rules: RulesSettings

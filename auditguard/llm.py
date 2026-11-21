@@ -8,21 +8,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.language_models import BaseChatModel, BaseLLM
 from langchain_core.runnables import Runnable
 from langchain_openai import ChatOpenAI, OpenAI
 from pydantic import BaseModel, SecretStr
 
 from auditguard.config import ConfigError, ModelSettings, ProviderSettings, Settings, load_settings
+from auditguard.tracing import tracing_callbacks
 
 MAX_RETRIES = 2
-
-
-def tracing_callbacks(settings: Settings) -> list[BaseCallbackHandler]:
-    """Tracing callbacks (Langfuse or LangSmith) for every model call. None configured yet."""
-    del settings
-    return []
 
 
 def _resolve(role: str, settings: Settings) -> tuple[ModelSettings, ProviderSettings, SecretStr]:
