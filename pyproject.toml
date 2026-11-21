@@ -1,0 +1,51 @@
+[project]
+name = "auditguard"
+version = "0.1.0"
+description = "Evidence-grounded assistant for AML alert investigation and STR preparation (synthetic data, mock portal)"
+readme = "CLAUDE.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx==0.28.1",
+    "langchain-openai==1.8.5",
+    "pydantic==2.14.4",
+    "python-dotenv==1.2.4",
+    "pyyaml==6.0.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["auditguard"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["*.md"]   # specs change only by deliberate edits
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "S", "SIM", "RUF"]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["auditguard", "scripts"]
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -m 'not live'"
+markers = ["live: calls a real model server or database (excluded by default)"]
+
+[dependency-groups]
+dev = [
+    "mypy==2.4.1",
+    "pytest==9.2.0",
+    "ruff==0.17.6",
+    "types-pyyaml==6.0.12.20261113",
+]
