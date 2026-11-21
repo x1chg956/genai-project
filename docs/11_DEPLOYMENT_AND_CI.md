@@ -26,25 +26,37 @@ budgets:
   critic_revisions: 2
 retrieval: {bm25: true, vector: true, rerank: true, decompose: true, k_bm25: 20, k_vector: 20, k_final: 5, rrf_k: 60, score_floor: 0.2}
 rules: {pack: rules/IN, version: "1.0.0"}
-corpus: {manifest: corpus/manifest.yaml, version: null}   # set by the first ingest (Phase 1)
+corpus: {manifest: corpus/manifest.yaml, version: null,  # version set by the first ingest
+         passages: "${CORPUS_PASSAGES:-corpus/processed/passages.jsonl}"}
 databases:                                        # from .env; local Postgres on 5432, Compose Postgres on host 5433
   app:         {host: "${POSTGRES_HOST:-localhost}", port: "${POSTGRES_PORT:-5432}", name: "${POSTGRES_DB:-auditguard}",
                 user: "${POSTGRES_USER:-auditguard}", password: "${POSTGRES_PASSWORD:-}"}
   groundtruth: {host: "${POSTGRES_HOST:-localhost}", port: "${POSTGRES_PORT:-5432}", name: "${GROUNDTRUTH_DB:-groundtruth}",
                 user: "${GROUNDTRUTH_USER:-groundtruth}", password: "${GROUNDTRUTH_PASSWORD:-}"}   # eval + generator only
+  ledger_ro:   {host: "${POSTGRES_HOST:-localhost}", port: "${POSTGRES_PORT:-5432}", name: "${POSTGRES_DB:-auditguard}",
+                user: "${LEDGER_RO_USER:-auditguard_ro}", password: "${LEDGER_RO_PASSWORD:-}"}   # transactions + aml_engine
 qdrant: {url: "${QDRANT_URL:-http://localhost:6333}"}
 guardrails:
   input: {schema: true, pseudonymise: true, prompt_guard: false, llama_guard: false, scope: true}
   output: {provenance: true, pii: true, neutral_wording: true, tipping_off: true}
 memory: {short_term: {keep_turns: 12}, long_term: {enabled: false, max_lessons: 2}}
-approval: {ttl_minutes: 120}
+approval: {ttl_minutes: 120, hmac_key: "${APPROVAL_HMAC_KEY:-}",
+           store_path: "${APPROVAL_STORE:-var/approvals.db}"}   # SQLite in Phase 1, Postgres from Phase 2
+filing_portal: {db_path: "${PORTAL_DB:-var/portal.db}",
+                form_limits: {max_payload_bytes: 200000, max_grounds_chars: 8000}}   # placeholders
 mcp:
-  transport: stdio                                 # http in Docker
-  servers: {}                                      # filled per server in Phase 1 (transactions, aml_engine, regulatory_kb, filing_portal)
+  transport: "${MCP_TRANSPORT:-stdio}"             # http in Docker
+  http_host: "${MCP_HTTP_HOST:-127.0.0.1}"
+  servers:                                         # python -m <module>; port used for http only
+    transactions: {module: mcp_servers.transactions, port: 8101}   # + aml_engine 8102, regulatory_kb 8103, filing_portal 8104
+  token_key: "${MCP_TOKEN_KEY:-}"                  # HMAC key for agent tokens
+  token_ttl_minutes: 60
+  max_rows: 200
+  allow_list: {...}                                # caller -> tools, the table at the end of docs/05
   description_hashes: {}                           # pinned in Phase 6
 ```
 
-`auditguard/config.py` loads base + optional experiment override into a typed `Settings` model and exposes `config_hash`. Fields that a later phase fills (`fallback.id`, `corpus.version`, `mcp.servers`) are optional and may be null; the code that needs one fails with a clear message if it is still unset. The groundtruth connection is loaded only by `eval/` and `data/generator/`; the app and MCP servers never read `databases.groundtruth`. Local roles and databases are created by `scripts/db_bootstrap.sh`. Every run stores the config hash, prompt file hashes, model IDs and seed.
+`auditguard/config.py` loads base + optional experiment override into a typed `Settings` model and exposes `config_hash`. Fields that a later phase fills (`fallback.id`, `corpus.version`) are optional and may be null; the code that needs one fails with a clear message if it is still unset. The groundtruth connection is loaded only by `eval/` and `data/generator/`; the app and MCP servers never read `databases.groundtruth`. Local roles and databases are created by `scripts/db_bootstrap.sh`. Every run stores the config hash, prompt file hashes, model IDs and seed.
 
 ## 2. Docker Compose (`infra/docker-compose.yml`, final state)
 

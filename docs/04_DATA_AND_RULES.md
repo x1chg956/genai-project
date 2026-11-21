@@ -4,9 +4,9 @@
 
 | Database | Contents | Who connects |
 |---|---|---|
-| Postgres `auditguard` | customer, entity_party, account, transaction, link, alert, prior_report, cases, approvals, audit_log, checkpoints, store | App and MCP servers (separate DB roles; transactions server role is SELECT only on ledger tables) |
+| Postgres `auditguard` | customer, entity_party, account, transaction, link, alert, prior_report, cases, approvals, audit_log, checkpoints, store | App and MCP servers (separate DB roles: transactions and aml_engine connect as `auditguard_ro`, SELECT only on ledger tables, read-only transactions) |
 | Postgres `groundtruth` | case_labels, scenario_params | Evaluation harness and generator only. **No MCP server, no agent.** Separate user and password |
-| Portal SQLite (`filing_portal/portal.db`) | drafts, submissions, receipts | filing_portal server only |
+| Portal SQLite (`filing_portal.db_path`, default `var/portal.db`) | drafts, submissions, receipts | filing_portal server only |
 
 Ledger tables (minimum columns):
 
