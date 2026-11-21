@@ -22,17 +22,20 @@ Config consequences: set `LLM_MODEL=Qwen3.5-9B-OptiQ-4bit`, put the key in `.env
 
 ## 1b. Local judge and guard candidates (tested 21 Nov 2026)
 
-The same oMLX server also serves `gemma-3-1b-it-4bit` and `Llama-Guard-3-1B-chat-mlx-4bit`. **Decision (21 Nov 2026): both are the defaults** (judge = Gemma, guard = Llama Guard 3 1B), so every role runs on the local server and no hosted key is needed. OpenRouter remains a config switch (§2). The judge is **not yet validated** (see the results below); judge calibration (`docs/10` §5, κ ≥ 0.6) decides whether it stays.
+The oMLX server serves the judge and the guard next to the agent model. **Decision (21 Nov 2026): both run locally** (judge = Gemma, guard = Llama Guard 3 1B), so every role runs on the local server and no hosted key is needed. OpenRouter remains a config switch (§2). The judge was first `gemma-3-1b-it-4bit`, which failed the core judge test; it was replaced the same day by **`gemma-4-e2b-it-OptiQ-4bit`** (128k context), which passed it. Passing a probe is not validation: judge calibration (`docs/10` §5, κ ≥ 0.6 on 30 human labels) decides whether it stays.
 
 | Model | Test | Result | Verdict |
 |---|---|---|---|
 | `gemma-3-1b-it-4bit` (judge candidate) | "Reply with exactly OK" | `OK` followed by multilingual garbage; 150 s cold load | Not usable as judge |
 | | Claim "INR 90,000 [TXN-1]" vs evidence "INR 50,000" (strict `json_schema`) | Valid JSON, but `supported: true` with an invented reason | Fails the core judge task |
+| `gemma-4-e2b-it-OptiQ-4bit` (judge, current) | "Reply with exactly OK", with and without the `<end_of_turn>` stop | `OK` both ways (~0.2 s warm) | Clean; stop token not needed |
+| | 6 claim-vs-evidence pairs, strict `json_schema`: correct amount, wrong amount (INR 90,000 vs 50,000), correct date, wrong date, R07 fired correctly, R07 claimed fired when it did not | **6/6 correct**, ~1 s each, reasons cite the mismatch | **Default judge**; calibration pending |
+| | `make llm-check` | chat, json_schema, thinking off, 54k-token prompt: all PASS; no same-family warning | Pass |
 | `Llama-Guard-3-1B-chat-mlx-4bit` (guard candidate) via `/chat/completions` | 3 unsafe + 2 safe prompts, plain or with the policy prompt as the message | `safe` for all 5: the server's chat template does not apply Llama Guard's policy format | Unusable over chat |
 | | Same 5 prompts via `/completions` with the official Llama Guard 3 raw prompt (special tokens + S1–S13 categories) | 5/5 correct: pipe bomb `unsafe S1`, laundering `unsafe S2`, tipping-off `unsafe S2`, both analyst requests `safe`; ~0.1 s | **Works in `completions_raw` mode** |
 
 Consequences:
-- The local judge is a known risk. Mitigations, in order: (1) code checks run before the judge and already catch wrong numbers and unresolved IDs (`docs/06` critic), so the judge only scores claim support and tone; (2) **done in Phase 0:** oMLX does not stop on Gemma's end-of-turn token, so `models.judge.stop: ["<end_of_turn>"]` is set in `configs/base.yaml`; with it, "Reply with exactly OK" returns `OK`. Under a `json_schema` constraint Gemma 1B also needs the expected JSON keys described in the prompt (the Format slot), otherwise it never closes the object and hits `max_tokens`. With both, `make llm-check` passes for the judge (structured output via `json_schema`). This proves the format works, not that the verdicts are right: the wrong-amount test above still stands; (3) if calibration misses κ ≥ 0.6, serve a larger non-Qwen model (e.g. Gemma 3 12B/27B) or switch `JUDGE_PROVIDER=openrouter`. Record "1B local judge" as a stated limit in the evaluation report while it is in use.
+- The local judge is a known risk. Mitigations, in order: (1) code checks run before the judge and already catch wrong numbers and unresolved IDs (`docs/06` critic), so the judge only scores claim support and tone; (2) **done in Phase 0:** oMLX does not stop on Gemma's end-of-turn token, so `models.judge.stop: ["<end_of_turn>"]` is set in `configs/base.yaml`; with it, "Reply with exactly OK" returns `OK`. Under a `json_schema` constraint Gemma 1B also needs the expected JSON keys described in the prompt (the Format slot), otherwise it never closes the object and hits `max_tokens`. With both, `make llm-check` passes for the judge (structured output via `json_schema`). This proves the format works, not that the verdicts are right: the wrong-amount test above still stands; (3) if calibration misses κ ≥ 0.6, serve a larger non-Qwen model (e.g. Gemma 3 12B/27B) or switch `JUDGE_PROVIDER=openrouter`. With `gemma-4-e2b-it-OptiQ-4bit` the format workarounds are no longer needed; record "small local judge (Gemma 4 E2B)" as a stated limit until calibration passes.
 - A local guard must use `mode: completions_raw`: code builds the official prompt from a template file in `prompts/` and calls `/completions`. Llama Guard 3 has categories S1–S13 (Llama Guard 4 adds S14); the template file pins the category list.
 - Prompt-injection detection is Prompt Guard 2's job, not Llama Guard's: a "ignore previous instructions" memo is correctly `safe` for Llama Guard.
 
@@ -57,7 +60,7 @@ models:
   supervisor: {provider: local, id: ${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}, temperature: 0,   max_tokens: 2000}
   specialist: {provider: local, id: ${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}, temperature: 0.2, max_tokens: 3000}
   decomposer: {provider: local, id: ${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}, temperature: 0,   max_tokens: 400}
-  judge:      {provider: ${JUDGE_PROVIDER:-local}, id: ${JUDGE_MODEL:-gemma-3-1b-it-4bit}, temperature: 0, max_tokens: 1500}
+  judge:      {provider: ${JUDGE_PROVIDER:-local}, id: ${JUDGE_MODEL:-gemma-4-e2b-it-OptiQ-4bit}, temperature: 0, max_tokens: 1500}
   guard:      {provider: ${GUARD_PROVIDER:-local}, id: ${GUARD_MODEL:-Llama-Guard-3-1B-chat-mlx-4bit}, temperature: 0,
                mode: ${GUARD_MODE:-completions_raw}, prompt_template: ${GUARD_PROMPT_TEMPLATE:-prompts/guard_llama_guard_3.txt}}
 ```

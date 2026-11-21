@@ -71,7 +71,7 @@ models:
   supervisor: {provider: local, id: ${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}, temperature: 0}
   specialist: {provider: local, id: ${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}, temperature: 0.2}
   decomposer: {provider: local, id: ${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}, temperature: 0}
-  judge:      {provider: local, id: gemma-3-1b-it-4bit, temperature: 0}   # different family: never Qwen; not yet validated
+  judge:      {provider: local, id: gemma-4-e2b-it-OptiQ-4bit, temperature: 0}   # different family: never Qwen; calibration pending
   guard:      {provider: local, id: Llama-Guard-3-1B-chat-mlx-4bit, temperature: 0, mode: completions_raw}
 ```
 

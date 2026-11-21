@@ -23,8 +23,8 @@ models:
   supervisor: {provider: local, id: "${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}", temperature: 0,   max_tokens: 2000}
   specialist: {provider: local, id: "${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}", temperature: 0.2, max_tokens: 3000}
   decomposer: {provider: local, id: "${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}", temperature: 0,   max_tokens: 400}
-  judge:      {provider: "${JUDGE_PROVIDER:-local}", id: "${JUDGE_MODEL:-gemma-3-1b-it-4bit}", temperature: 0, max_tokens: 1500,
-               stop: ["<end_of_turn>"]}   # oMLX misses Gemma's end-of-turn token without this (docs/13 §1b)
+  judge:      {provider: "${JUDGE_PROVIDER:-local}", id: "${JUDGE_MODEL:-gemma-4-e2b-it-OptiQ-4bit}", temperature: 0, max_tokens: 1500,
+               stop: ["<end_of_turn>"]}   # needed for Gemma 3 on oMLX; Gemma 4 stops cleanly without it, harmless (docs/13 §1b)
   guard:      {provider: "${GUARD_PROVIDER:-local}", id: "${GUARD_MODEL:-Llama-Guard-3-1B-chat-mlx-4bit}", temperature: 0,
                max_tokens: 20, mode: "${GUARD_MODE:-completions_raw}",
                prompt_template: "${GUARD_PROMPT_TEMPLATE:-prompts/guard_llama_guard_3.txt}"}
