@@ -1,0 +1,4 @@
+# Entry point so `docker compose up` works from the repo root and reads .env here.
+# Service definitions live in infra/docker-compose.yml.
+include:
+  - infra/docker-compose.yml

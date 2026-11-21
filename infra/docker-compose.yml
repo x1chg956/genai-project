@@ -1,0 +1,42 @@
+# AuditGuard services (docs/11 §2). Phase 0: Postgres + Qdrant only; app services come later.
+# Run from the repo root (the root docker-compose.yml includes this file and reads .env).
+name: auditguard
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      APP_DB: ${POSTGRES_DB:-auditguard}
+      APP_USER: ${POSTGRES_USER:-auditguard}
+      APP_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      GT_DB: ${GROUNDTRUTH_DB:-groundtruth}
+      GT_USER: ${GROUNDTRUTH_USER:-groundtruth}
+      GT_PASSWORD: ${GROUNDTRUTH_PASSWORD:?set GROUNDTRUTH_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:5433:5432"        # host 5433: a local Postgres already uses 5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  qdrant:
+    image: qdrant/qdrant:v1.20.0
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:
+  qdrant_data:
