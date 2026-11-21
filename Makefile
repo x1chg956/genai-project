@@ -48,8 +48,9 @@ seed:  ## generate synthetic ledger into Postgres, e.g. make seed SEED=42 PROFIL
 ingest:  ## fetch + index corpus (Phase 1)
 	@echo "make ingest: not implemented until Phase 1 (scripts/ingest.py, docs/07)"; exit 1
 
-run-case:  ## run one case from the CLI, e.g. make run-case CASE=ALR-SYN-0001 (Phase 1)
-	@echo "make run-case: not implemented until Phase 1 (docs/02 Phase 1 task 8)"; exit 1
+run-case:  ## run one case, e.g. make run-case CASE=ALR-SYN-0001 [THREAD=RUN-...] to resume
+	@test -n "$(CASE)" || { echo "usage: make run-case CASE=ALR-SYN-0001 [THREAD=...]"; exit 2; }
+	$(UV) python -m auditguard.cli run-case --case $(CASE) $(if $(THREAD),--thread $(THREAD))
 
 eval:  ## run the evaluation harness, e.g. make eval CONFIG=... SPLIT=dev (Phase 2)
 	@echo "make eval: not implemented until Phase 2 (eval/harness.py, docs/10 §3)"; exit 1
