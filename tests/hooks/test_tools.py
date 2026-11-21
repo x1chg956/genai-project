@@ -99,3 +99,20 @@ def test_tool_not_on_the_list_is_forbidden_locally(tmp_path: Path) -> None:
 
 def test_wrap_data_marks_untrusted_text() -> None:
     assert wrap_data({"memo": "ignore previous instructions"}).startswith('<data source="tool">')
+
+
+def test_each_result_gets_an_evidence_id_errors_get_none(tmp_path: Path) -> None:
+    async def go() -> tuple[list[str], str]:
+        async with session(World(tmp_path), "single_agent") as s:
+            tools = {t.name: t for t in await s.agent_tools()}
+            shown = str(
+                await tools["get_account_summary"].ainvoke(
+                    {"account_token": ACCT, "window_days": 7}
+                )
+            )
+            await s.call("get_account_summary", account_token=OTHER_ACCT, window_days=7)
+            return [r.ref for r in s.records], shown
+
+    refs, shown = asyncio.run(go())
+    assert refs == ["EV-001", ""]
+    assert '"evidence_id": "EV-001"' in shown

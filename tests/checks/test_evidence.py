@@ -95,3 +95,10 @@ def test_claiming_a_not_fired_rule_fired_is_caught() -> None:
     assert not contradicted_rule_claims(draft("Rule R04 did not fire.", ["R04"]), fired)
     assert not contradicted_rule_claims(draft("Rule R07 fired.", ["R07"]), fired)
     assert not contradicted_rule_claims(draft("R04 residual is 30551.86.", ["R04"]), fired)
+
+
+def test_a_results_evidence_id_is_citable() -> None:
+    summary = ToolRecord("get_account_summary", {}, {"credit_total": "950.75"}, True, "EV-004")
+    assert "EV-004" in known_ids([summary])
+    failed = ToolRecord("get_account_summary", {}, {"error_code": "OUT_OF_SCOPE"}, True, "")
+    assert known_ids([failed]) == set()

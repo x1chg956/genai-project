@@ -85,9 +85,14 @@ def server_clients(settings: Settings) -> ClientFactory:
     return make
 
 
-def wrap_data(result: ToolResult) -> str:
-    """Tool output as shown to a model: data, never instructions (rule 2)."""
-    body = json.dumps(result, ensure_ascii=False, sort_keys=True)
+def wrap_data(result: ToolResult, ref: str | None = None) -> str:
+    """Tool output as shown to a model: data, never instructions (rule 2).
+
+    `ref` is the result's evidence ID (EV-001, ...), so a fact from an aggregate result
+    such as an account summary can be cited; error results get none.
+    """
+    shown = {"evidence_id": ref, **result} if ref else result
+    body = json.dumps(shown, ensure_ascii=False, sort_keys=True)
     return f'<data source="tool">{body}</data>'
 
 
@@ -98,6 +103,8 @@ class ToolRecord:
     """Arguments as sent, without agent_token and case_id."""
     result: ToolResult
     by_model: bool
+    ref: str = ""
+    """Evidence ID of this result (EV-001, ...); empty for an error result."""
 
 
 @dataclass
@@ -156,7 +163,8 @@ class ToolSession:
         return self.max_calls is None or self.calls_made < self.max_calls
 
     def _record(self, tool: str, args: dict[str, Any], result: ToolResult, by_model: bool) -> None:
-        self.records.append(ToolRecord(tool, dict(args), result, by_model))
+        ref = "" if is_error(result) else f"EV-{len(self.records) + 1:03d}"
+        self.records.append(ToolRecord(tool, dict(args), result, by_model, ref))
 
     async def call(self, tool: str, **args: Any) -> ToolResult:
         """Call a tool from code. Returns the structured result; never raises a tool error."""
@@ -207,7 +215,7 @@ class ToolSession:
             message = await base.ainvoke({**call, "args": sent})
             result = _result_of(message, name)
             self._record(name, args, result, by_model=True)
-            return wrap_data(result)
+            return wrap_data(result, self.records[-1].ref or None)
 
         return StructuredTool(
             name=name,

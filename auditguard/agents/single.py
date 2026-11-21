@@ -96,7 +96,11 @@ def task_message(alert: Alert, ledger: LedgerSlice, quality: DataQualityReport) 
 
 
 def answer_message(records: list[ToolRecord], problems: list[str]) -> str:
-    seen = [{"tool": r.tool, "args": r.args, "result": r.result} for r in records if r.by_model]
+    seen = [
+        {"evidence_id": r.ref or None, "tool": r.tool, "args": r.args, "result": r.result}
+        for r in records
+        if r.by_model
+    ]
     allowed = sorted(known_ids(records))
     text = (
         "Now return the final SingleAgentAnswer. Use only the tool results below. "
@@ -251,7 +255,9 @@ async def run_single_agent(
 
 def _dump(session: ToolSession) -> list[dict[str, Any]]:
     return [
-        {"tool": r.tool, "args": r.args, "result": r.result} for r in session.records if r.by_model
+        {"ref": r.ref, "tool": r.tool, "args": r.args, "result": r.result}
+        for r in session.records
+        if r.by_model
     ]
 
 

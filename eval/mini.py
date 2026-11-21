@@ -171,6 +171,19 @@ def main(argv: list[str] | None = None) -> int:
     exp_id = f"mini-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
     out_dir = args.out / exp_id
     out_dir.mkdir(parents=True, exist_ok=True)
+    rows = asyncio.run(run_all(cases, deps, settings, out_dir))
+    with (out_dir / "results.jsonl").open("w", encoding="utf-8") as fh:
+        for row in rows:
+            fh.write(json.dumps(row, default=str) + "\n")
+    print(f"\nresults: {out_dir.relative_to(REPO_ROOT)}/results.jsonl\n")
+    print(table(rows))
+    return 0
+
+
+async def run_all(
+    cases: list[EvalCase], deps: GraphDeps, settings: Settings, out_dir: Path
+) -> list[dict[str, Any]]:
+    """All cases in one event loop: the model client is shared and bound to its loop."""
     rows: list[dict[str, Any]] = []
     for case in cases:
         if case.alert_id is None:
@@ -179,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
         print(f"{case.case_id}: running {case.alert_id} ...", flush=True)
         try:
-            state = asyncio.run(run_one(case, deps, settings))
+            state = await run_one(case, deps, settings)
         except Exception as exc:  # a failed run is recorded, never dropped (docs/10 §3)
             rows.append(
                 {
@@ -207,12 +220,7 @@ def main(argv: list[str] | None = None) -> int:
             encoding="utf-8",
         )
         rows.append(row)
-    with (out_dir / "results.jsonl").open("w", encoding="utf-8") as fh:
-        for row in rows:
-            fh.write(json.dumps(row, default=str) + "\n")
-    print(f"\nresults: {out_dir.relative_to(REPO_ROOT)}/results.jsonl\n")
-    print(table(rows))
-    return 0
+    return rows
 
 
 if __name__ == "__main__":

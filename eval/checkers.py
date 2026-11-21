@@ -35,7 +35,7 @@ class Check:
 
 def records_of(state: dict[str, Any]) -> list[ToolRecord]:
     return [
-        ToolRecord(r["tool"], r["args"], r["result"], by_model=True)
+        ToolRecord(r["tool"], r["args"], r["result"], by_model=True, ref=r.get("ref", ""))
         for r in state.get("tool_records", [])
     ]
 

@@ -56,13 +56,15 @@ def tool_numbers(records: Iterable[ToolRecord]) -> set[Decimal]:
 
 
 def known_ids(records: Iterable[ToolRecord]) -> set[str]:
-    """Evidence IDs a draft may cite: ledger refs, transactions, rules and passages the tools
-    returned."""
+    """Evidence IDs a draft may cite: each result's own EV-nnn, and the ledger refs,
+    transactions, rules and passages the tools returned."""
     ids: set[str] = set()
     for record in records:
         result = record.result
         if is_error(result):
             continue
+        if record.ref:
+            ids.add(record.ref)
         if isinstance(result.get("ledger_ref"), str):
             ids.add(result["ledger_ref"])
         for txn in result.get("transactions", []):
