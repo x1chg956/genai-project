@@ -34,7 +34,11 @@
 }
 ```
 
-`gate_script` tells the harness how to answer each `interrupt()` so runs are unattended; approval uses a separate approver identity.
+`gate_script` tells the harness how to answer each `interrupt()` so runs are unattended; approval uses a separate approver identity. A case without a `gate_script` is answered `needs_info` (nothing is filed by default). Null expectations are scaffolds: their checkers report SKIP, never a guess.
+
+**Disposition** is scored on the agent's `recommendation` (`escalate_for_review | no_action | insufficient_data`, the same vocabulary as `expected_disposition`), not on the scripted human decision, which only exercises the gates.
+
+**Phase 1 mini evaluation** (`make mini-eval`, `eval/mini.py`): runs `eval/cases/dev/phase1.jsonl` through the C1 graph live and writes `runs/mini-<time>/` with one run record per case (trace IDs, tool records, stats, checks, config and prompt hashes, model IDs) and `results.jsonl`. Its table has, per case: status, recommendation, tool calls, invalid tool calls, structured retries, tokens, latency and the six checks, then numbers-match and citations-match over the drafts.
 
 ## 3. Harness (`eval/harness.py`)
 

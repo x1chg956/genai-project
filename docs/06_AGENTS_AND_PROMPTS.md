@@ -13,7 +13,8 @@
 
 - LangGraph `create_react_agent` (or an equivalent custom ReAct node) with all R and C tools, wrapped by hooks.
 - Budget from config: `budgets.case.tool_calls` (start at 20), `steps` 12, `seconds` 180. The same `budgets.case` block applies to C0, C1 and C2.
-- Output: `SingleAgentResult { indicators: list[RuleResult], hypotheses: list[Hypothesis], passages: list[Passage], draft: DraftReport }`.
+- Output: `SingleAgentResult { indicators: list[RuleResult], hypotheses: list[Hypothesis], passages: list[Passage], draft: DraftReport, recommendation, recommendation_reason }`. `recommendation` is `escalate_for_review | no_action | insufficient_data`: the model proposes it, the decision gate shows it, the analyst decides.
+- Every tool result shown to the model carries an `evidence_id` (`EV-001`, …) assigned by the tools layer, so a fact from an aggregate result (account summary, counterparty flows) is citable and resolves to exactly one recorded call.
 - Indicators must be copied from `evaluate_rules` output. A code check rejects any indicator not returned by the tool. Implemented as: the model returns `SingleAgentAnswer` (hypotheses, passage_ids, draft) in one structured call after the ReAct loop; code builds `SingleAgentResult` from it and the tool records.
 - Code checks on the answer (`auditguard/checks/evidence.py`), retried once with the problems appended: every cited ID was returned by a tool (ledger_ref, transaction, rule or passage IDs); every number in the draft appears in a tool result; no sentence says a not-fired rule fired; at least one benign hypothesis. The answer request lists the IDs the model may cite.
 
