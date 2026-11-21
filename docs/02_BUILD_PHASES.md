@@ -54,7 +54,7 @@ Acceptance
 - `uv sync && make lint && make test` pass on a clean clone.
 - `docker compose up postgres qdrant` is healthy.
 - `python -c "from auditguard.llm import get_model; print(get_model('specialist'))"` works (no call made).
-- `make llm-check` passes for the local server (`Qwen3.5-4B-4bit` at `http://127.0.0.1:8888/v1`): model listed, chat with thinking off, **tool calling** and **structured output** all work. These were verified by hand on 21 Nov 2026; if any fails now, stop and report.
+- `make llm-check` passes for the local server (`Qwen3.5-9B-OptiQ-4bit` at `http://127.0.0.1:8888/v1`; Phase 0 was verified on `Qwen3.5-4B-4bit`): model listed, chat with thinking off, **tool calling** and **structured output** all work. These were verified by hand on 21 Nov 2026; if any fails now, stop and report.
 - Setting `LLM_BASE_URL` in `.env` changes the endpoint with no code change.
 - A single test model call appears in the tracing backend with a trace ID.
 
@@ -71,7 +71,7 @@ Scope limits for this phase
 - Rules: **01 cash structuring, 04 rapid pass-through, 07 fan-in** only.
 - Corpus: 2 documents, a handful of clauses each (PML Rules extract, KYC Directions extract). **BM25 only** for now.
 - One agent, one prompt. CLI approval. SQLite checkpointer is fine in this phase.
-- Model: the local `Qwen3.5-4B-4bit`. Record its tool-choice errors and structured-output retries in the mini evaluation; they decide whether any role needs a larger model.
+- Model: the local `Qwen3.5-9B-OptiQ-4bit` (moved up from `Qwen3.5-4B-4bit` on 21 Nov 2026 after live runs, see `PROGRESS.md`). Record its tool-choice errors and structured-output retries in the mini evaluation; they decide whether any role needs a larger model.
 
 Tasks
 1. **Schemas** (`auditguard/schemas/`): `Alert`, `Transaction`, `LedgerSlice`, `DataQualityReport`, `RuleResult`, `Hypothesis`, `Passage`, `EvidencePack`, `DraftReport` (sentences with `evidence_ids`), `Payload`, `ApprovalRecord`, `Receipt`, `ToolError`. See `03_ARCHITECTURE.md` §3.

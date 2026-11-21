@@ -49,7 +49,7 @@ def test_expand_cannot_inject_yaml_structure() -> None:
 
 def test_base_config_loads_with_spec_defaults(settings: Settings) -> None:
     assert settings.providers["local"].base_url == "http://127.0.0.1:8888/v1"
-    assert settings.models["specialist"].id == "Qwen3.5-4B-4bit"
+    assert settings.models["specialist"].id == "Qwen3.5-9B-OptiQ-4bit"
     assert settings.models["judge"].provider == "local"
     assert settings.models["judge"].id == "gemma-3-1b-it-4bit"
     assert settings.models["guard"].mode == "completions_raw"

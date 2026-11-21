@@ -68,18 +68,18 @@ Never hard-code. `configs/base.yaml`:
 
 ```yaml
 models:
-  supervisor: {provider: local, id: ${LLM_MODEL:-Qwen3.5-4B-4bit}, temperature: 0}
-  specialist: {provider: local, id: ${LLM_MODEL:-Qwen3.5-4B-4bit}, temperature: 0.2}
-  decomposer: {provider: local, id: ${LLM_MODEL:-Qwen3.5-4B-4bit}, temperature: 0}
+  supervisor: {provider: local, id: ${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}, temperature: 0}
+  specialist: {provider: local, id: ${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}, temperature: 0.2}
+  decomposer: {provider: local, id: ${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}, temperature: 0}
   judge:      {provider: local, id: gemma-3-1b-it-4bit, temperature: 0}   # different family: never Qwen; not yet validated
   guard:      {provider: local, id: Llama-Guard-3-1B-chat-mlx-4bit, temperature: 0, mode: completions_raw}
 ```
 
-The local oMLX server (`http://127.0.0.1:8888/v1`, `Qwen3.5-4B-4bit`) is the default provider. Full provider config, the `llm-check` script and Docker networking are in `13_MODEL_PROVIDERS.md`. Local models vary in how well they follow tool-calling and structured-output formats: keep prompts short and explicit, use the structured-output method `llm-check` recorded, and validate every response with Pydantic.
+The local oMLX server (`http://127.0.0.1:8888/v1`, `Qwen3.5-9B-OptiQ-4bit`) is the default provider. Full provider config, the `llm-check` script and Docker networking are in `13_MODEL_PROVIDERS.md`. Local models vary in how well they follow tool-calling and structured-output formats: keep prompts short and explicit, use the structured-output method `llm-check` recorded, and validate every response with Pydantic.
 
-### Writing prompts for the local 4B model
+### Writing prompts for the local Qwen models
 
-Verified behaviour of `Qwen3.5-4B-4bit` on this server: tool calling and strict `json_schema` output work; thinking mode is on by default and must be turned off per request (`chat_template_kwargs.enable_thinking=false`; the `/no_think` tag does not work). It is a small model, so:
+The default is `Qwen3.5-9B-OptiQ-4bit`. On ALR-SYN-0001 the 4B model's final answers usually failed the code checks (it converted ratios to percentages, cited IDs it never received and claimed a not-fired rule fired); the 9B passed them on the first attempt and stated the rule results correctly. Verified behaviour of `Qwen3.5-4B-4bit` on this server, which the 9B shares: tool calling and strict `json_schema` output work; thinking mode is on by default and must be turned off per request (`chat_template_kwargs.enable_thinking=false`; the `/no_think` tag does not work). It is a small model, so:
 
 - Put the domain framing in the **Role** and **Context** slots explicitly (e.g. "rapid pass-through of many unrelated inflows is an AML indicator"). In testing it misclassified an obvious mule pattern without one line of context and got it right with it.
 - One task per call. Prefer several short structured calls over one long instruction.

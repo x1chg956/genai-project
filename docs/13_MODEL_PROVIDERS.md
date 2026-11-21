@@ -11,14 +11,14 @@ The default endpoint is the local model server at **`http://127.0.0.1:8888/v1`**
 | Item | Result |
 |---|---|
 | Server | oMLX, OpenAI-compatible, at `http://127.0.0.1:8888/v1`; needs a bearer key (401 without one) |
-| Model | `Qwen3.5-4B-4bit` (only model listed; `max_model_len` 262144) |
+| Model | `Qwen3.5-9B-OptiQ-4bit` since 21 Nov 2026 (`max_model_len` 262144; llm-check: tools, strict json_schema, thinking off and a 54k-token prompt all pass). Phase 0 was verified on `Qwen3.5-4B-4bit` |
 | Chat | works |
 | Tool calling | works: returns proper `tool_calls`, reasoning kept in a separate `reasoning_content` field |
 | Structured output | `response_format: json_schema` (strict) returns valid JSON |
 | Thinking mode | on by default and leaks into `content` on plain chat. Turn it off per request with `chat_template_kwargs: {enable_thinking: false}`; the `/no_think` tag does **not** work on this server |
 | Latency | about 0.5–2.8 s per short call |
 
-Config consequences: set `LLM_MODEL=Qwen3.5-4B-4bit`, put the key in `.env` as `LLM_API_KEY` (never in a committed file), and set `extra_body: {chat_template_kwargs: {enable_thinking: false}}` on every local role except where a run deliberately tests thinking. The judge must not be a Qwen model (different family rule).
+Config consequences: set `LLM_MODEL=Qwen3.5-9B-OptiQ-4bit`, put the key in `.env` as `LLM_API_KEY` (never in a committed file), and set `extra_body: {chat_template_kwargs: {enable_thinking: false}}` on every local role except where a run deliberately tests thinking. The judge must not be a Qwen model (different family rule).
 
 ## 1b. Local judge and guard candidates (tested 21 Nov 2026)
 
@@ -54,9 +54,9 @@ providers:
     cost_per_1k_tokens: {}                    # filled from OpenRouter pricing when used
 
 models:
-  supervisor: {provider: local, id: ${LLM_MODEL:-Qwen3.5-4B-4bit}, temperature: 0,   max_tokens: 2000}
-  specialist: {provider: local, id: ${LLM_MODEL:-Qwen3.5-4B-4bit}, temperature: 0.2, max_tokens: 3000}
-  decomposer: {provider: local, id: ${LLM_MODEL:-Qwen3.5-4B-4bit}, temperature: 0,   max_tokens: 400}
+  supervisor: {provider: local, id: ${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}, temperature: 0,   max_tokens: 2000}
+  specialist: {provider: local, id: ${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}, temperature: 0.2, max_tokens: 3000}
+  decomposer: {provider: local, id: ${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}, temperature: 0,   max_tokens: 400}
   judge:      {provider: ${JUDGE_PROVIDER:-local}, id: ${JUDGE_MODEL:-gemma-3-1b-it-4bit}, temperature: 0, max_tokens: 1500}
   guard:      {provider: ${GUARD_PROVIDER:-local}, id: ${GUARD_MODEL:-Llama-Guard-3-1B-chat-mlx-4bit}, temperature: 0,
                mode: ${GUARD_MODE:-completions_raw}, prompt_template: ${GUARD_PROMPT_TEMPLATE:-prompts/guard_llama_guard_3.txt}}

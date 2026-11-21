@@ -11,9 +11,9 @@ providers:                                        # full spec: docs/13_MODEL_PRO
                extra_body: {chat_template_kwargs: {enable_thinking: false}}, structured_method: json_schema}
   openrouter: {base_url: "https://openrouter.ai/api/v1", api_key: "${OPENROUTER_API_KEY:-}", timeout_s: 60}
 models:
-  supervisor: {provider: local, id: "${LLM_MODEL:-Qwen3.5-4B-4bit}", temperature: 0, max_tokens: 2000}
-  specialist: {provider: local, id: "${LLM_MODEL:-Qwen3.5-4B-4bit}", temperature: 0.2, max_tokens: 3000}
-  decomposer: {provider: local, id: "${LLM_MODEL:-Qwen3.5-4B-4bit}", temperature: 0, max_tokens: 400}
+  supervisor: {provider: local, id: "${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}", temperature: 0, max_tokens: 2000}
+  specialist: {provider: local, id: "${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}", temperature: 0.2, max_tokens: 3000}
+  decomposer: {provider: local, id: "${LLM_MODEL:-Qwen3.5-9B-OptiQ-4bit}", temperature: 0, max_tokens: 400}
   judge:      {provider: "${JUDGE_PROVIDER:-local}", id: "${JUDGE_MODEL:-gemma-3-1b-it-4bit}", temperature: 0, max_tokens: 1500}   # not yet validated: docs/13 §1b
   guard:      {provider: "${GUARD_PROVIDER:-local}", id: "${GUARD_MODEL:-Llama-Guard-3-1B-chat-mlx-4bit}", temperature: 0,
                mode: "${GUARD_MODE:-completions_raw}", prompt_template: "${GUARD_PROMPT_TEMPLATE:-prompts/guard_llama_guard_3.txt}"}

@@ -65,7 +65,7 @@ flowchart TB
   end
 
   subgraph MODELS["Model server · only via auditguard/llm.py"]
-    qwen["Qwen3.5-4B-4bit<br/>supervisor · specialists · decomposer"]
+    qwen["Qwen3.5-9B-OptiQ-4bit<br/>supervisor · specialists · decomposer"]
     gemma["gemma-3-1b-it-4bit<br/>judge"]
     lguard["Llama-Guard-3-1B<br/>guard · raw completions"]
   end
