@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import psycopg
+from psycopg import sql
 
 from auditguard.config import REPO_ROOT
 from data.generator.model import Dataset
@@ -101,13 +102,28 @@ def _apply(conn: psycopg.Connection[Any], sql_file: Path) -> None:
     conn.execute(sql_file.read_text(encoding="utf-8"))
 
 
-def write_ledger(ds: Dataset, app_conninfo: str) -> None:
+def grant_read_only(conn: psycopg.Connection[Any], ro_user: str) -> bool:
+    """SELECT on ledger.* for the MCP servers' role (docs/05). False if the role is missing."""
+    if conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (ro_user,)).fetchone() is None:
+        return False
+    role = sql.Identifier(ro_user)
+    conn.execute(sql.SQL("GRANT USAGE ON SCHEMA ledger TO {}").format(role))
+    conn.execute(sql.SQL("GRANT SELECT ON ALL TABLES IN SCHEMA ledger TO {}").format(role))
+    return True
+
+
+def write_ledger(ds: Dataset, app_conninfo: str, *, ro_user: str | None = None) -> bool:
+    """Returns whether the read-only role was granted access (False if it does not exist)."""
+    granted = False
     with psycopg.connect(app_conninfo) as conn:
         _apply(conn, SCHEMA_DIR / "auditguard_ledger.sql")
+        if ro_user:
+            granted = grant_read_only(conn, ro_user)
         with conn.cursor() as cur:
             cur.execute("TRUNCATE " + ", ".join(f"ledger.{t}" for t in LEDGER_TABLES))
             for table, rows in ledger_rows(ds).items():
                 _insert(cur, f"ledger.{table}", rows)
+    return granted
 
 
 def write_labels(ds: Dataset, groundtruth_conninfo: str) -> None:

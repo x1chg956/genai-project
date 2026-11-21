@@ -108,6 +108,7 @@ class RulesSettings(_Strict):
 class CorpusSettings(_Strict):
     manifest: str
     version: str | None = None
+    passages: str
 
 
 class DatabaseSettings(_Strict):
@@ -121,6 +122,7 @@ class DatabaseSettings(_Strict):
 class Databases(_Strict):
     app: DatabaseSettings
     groundtruth: DatabaseSettings
+    ledger_ro: DatabaseSettings
 
 
 class QdrantSettings(_Strict):
@@ -163,11 +165,33 @@ class MemorySettings(_Strict):
 
 class ApprovalSettings(_Strict):
     ttl_minutes: int
+    hmac_key: OptSecret = None
+    store_path: str
+
+
+class FormLimits(_Strict):
+    max_payload_bytes: int
+    max_grounds_chars: int
+
+
+class FilingPortalSettings(_Strict):
+    db_path: str
+    form_limits: FormLimits
+
+
+class McpServerSettings(_Strict):
+    module: str
+    port: int
 
 
 class McpSettings(_Strict):
     transport: Literal["stdio", "http"]
-    servers: dict[str, Any] = Field(default_factory=dict)
+    http_host: str
+    servers: dict[str, McpServerSettings] = Field(default_factory=dict)
+    token_key: OptSecret = None
+    token_ttl_minutes: int
+    max_rows: int = Field(le=200)
+    allow_list: dict[str, list[str]]
     description_hashes: dict[str, str] = Field(default_factory=dict)
 
 
@@ -188,6 +212,7 @@ class Settings(_Strict):
     guardrails: Guardrails
     memory: MemorySettings
     approval: ApprovalSettings
+    filing_portal: FilingPortalSettings
     mcp: McpSettings
 
     @property
@@ -222,6 +247,19 @@ class Settings(_Strict):
             or self.provider_for(role).structured_method
             or "json_schema"
         )
+
+
+def resolve_path(path: str) -> Path:
+    """Config paths are relative to the repo root unless absolute."""
+    p = Path(path)
+    return p if p.is_absolute() else REPO_ROOT / p
+
+
+def require_secret(value: SecretStr | None, name: str) -> bytes:
+    """The secret's bytes, or a ConfigError naming the variable (never its value)."""
+    if value is None or not value.get_secret_value():
+        raise ConfigError(f"{name} is not set; add it to .env")
+    return value.get_secret_value().encode("utf-8")
 
 
 def expand_vars(value: Any, environ: Mapping[str, str]) -> Any:

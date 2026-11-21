@@ -53,7 +53,11 @@ def main(argv: list[str] | None = None) -> int:
     settings = load_settings()
     app, gt = settings.databases.app, settings.databases.groundtruth
     try:
-        write_ledger(ds, conninfo(app, application_name="generator"))
+        granted = write_ledger(
+            ds,
+            conninfo(app, application_name="generator"),
+            ro_user=settings.databases.ledger_ro.user,
+        )
         write_labels(ds, conninfo(gt, application_name="generator"))
     except psycopg.Error as exc:
         print(
@@ -62,6 +66,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
     print(f"wrote ledger to {describe(app)} and labels to {describe(gt)}")
+    if not granted:
+        print(
+            f"warning: role {settings.databases.ledger_ro.user!r} not found, so the MCP servers "
+            "cannot read the ledger; run make db-bootstrap"
+        )
     return 0
 
 

@@ -11,3 +11,5 @@ eval/heldout/
 *.db
 *.sqlite
 .DS_Store
+var/
+corpus/processed/

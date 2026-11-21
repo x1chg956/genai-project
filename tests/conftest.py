@@ -13,6 +13,9 @@ TEST_ENV = {
     "OPENROUTER_API_KEY": "test-openrouter-key",
     "POSTGRES_PASSWORD": "test-app-pw",
     "GROUNDTRUTH_PASSWORD": "test-gt-pw",
+    "LEDGER_RO_PASSWORD": "test-ro-pw",
+    "MCP_TOKEN_KEY": "test-mcp-token-key",
+    "APPROVAL_HMAC_KEY": "test-approval-hmac-key",
 }
 
 

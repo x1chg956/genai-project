@@ -3,6 +3,8 @@
 #
 #   auditguard  role + database  (ledger, cases, approvals, audit, checkpoints)
 #   groundtruth role + database  (labels; only the eval harness and generator connect)
+#   auditguard_ro role           (MCP transactions + aml_engine: CONNECT to auditguard only;
+#                                 SELECT on ledger.* is granted by `make seed`)
 #
 # Each database accepts connections from its own role only, so the app role can
 # never reach groundtruth. Passwords come from .env and are never printed.
@@ -33,9 +35,10 @@ APP_USER="${POSTGRES_USER:-auditguard}"
 APP_DB="${POSTGRES_DB:-auditguard}"
 GT_USER="${GROUNDTRUTH_USER:-groundtruth}"
 GT_DB="${GROUNDTRUTH_DB:-groundtruth}"
+RO_USER="${LEDGER_RO_USER:-auditguard_ro}"
 ADMIN="${PGADMIN_USER:-postgres}"
 
-for var in POSTGRES_PASSWORD GROUNDTRUTH_PASSWORD; do
+for var in POSTGRES_PASSWORD GROUNDTRUTH_PASSWORD LEDGER_RO_PASSWORD; do
   val="${!var:-}"
   if [[ -z "$val" ]]; then
     echo "error: $var is empty in .env" >&2; exit 1
@@ -46,6 +49,9 @@ for var in POSTGRES_PASSWORD GROUNDTRUTH_PASSWORD; do
 done
 if [[ "$POSTGRES_PASSWORD" == "$GROUNDTRUTH_PASSWORD" ]]; then
   echo "error: POSTGRES_PASSWORD and GROUNDTRUTH_PASSWORD must differ" >&2; exit 1
+fi
+if [[ "$LEDGER_RO_PASSWORD" == "$POSTGRES_PASSWORD" || "$LEDGER_RO_PASSWORD" == "$GROUNDTRUTH_PASSWORD" ]]; then
+  echo "error: LEDGER_RO_PASSWORD must differ from the other passwords" >&2; exit 1
 fi
 if [[ "$APP_USER" == "$GT_USER" ]]; then
   echo "error: POSTGRES_USER and GROUNDTRUTH_USER must differ" >&2; exit 1
@@ -62,6 +68,8 @@ echo "Bootstrapping roles and databases on $HOST:$PORT as $ADMIN ..."
 \set gt_user '$GT_USER'
 \set gt_db '$GT_DB'
 \set gt_pw '$GROUNDTRUTH_PASSWORD'
+\set ro_user '$RO_USER'
+\set ro_pw '$LEDGER_RO_PASSWORD'
 
 SELECT format('CREATE ROLE %I LOGIN', :'app_user')
  WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'app_user') \gexec
@@ -69,6 +77,10 @@ SELECT format('CREATE ROLE %I LOGIN', :'gt_user')
  WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'gt_user') \gexec
 ALTER ROLE :"app_user" WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD :'app_pw';
 ALTER ROLE :"gt_user"  WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD :'gt_pw';
+SELECT format('CREATE ROLE %I LOGIN', :'ro_user')
+ WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'ro_user') \gexec
+ALTER ROLE :"ro_user"  WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE PASSWORD :'ro_pw';
+ALTER ROLE :"ro_user"  SET default_transaction_read_only = on;
 
 SELECT format('CREATE DATABASE %I OWNER %I', :'app_db', :'app_user')
  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'app_db') \gexec
@@ -79,6 +91,7 @@ REVOKE ALL ON DATABASE :"app_db" FROM PUBLIC;
 REVOKE ALL ON DATABASE :"gt_db"  FROM PUBLIC;
 GRANT CONNECT, TEMPORARY ON DATABASE :"app_db" TO :"app_user";
 GRANT CONNECT, TEMPORARY ON DATABASE :"gt_db"  TO :"gt_user";
+GRANT CONNECT ON DATABASE :"app_db" TO :"ro_user";
 SQL
 unset PGPASSWORD
 
@@ -96,4 +109,6 @@ check "$APP_USER" "$POSTGRES_PASSWORD"    "$APP_DB" ok
 check "$GT_USER"  "$GROUNDTRUTH_PASSWORD" "$GT_DB"  ok
 check "$APP_USER" "$POSTGRES_PASSWORD"    "$GT_DB"  denied
 check "$GT_USER"  "$GROUNDTRUTH_PASSWORD" "$APP_DB" denied
+check "$RO_USER"  "$LEDGER_RO_PASSWORD"   "$APP_DB" ok
+check "$RO_USER"  "$LEDGER_RO_PASSWORD"   "$GT_DB"  denied
 echo "Done."

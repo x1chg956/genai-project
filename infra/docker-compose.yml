@@ -14,6 +14,8 @@ services:
       GT_DB: ${GROUNDTRUTH_DB:-groundtruth}
       GT_USER: ${GROUNDTRUTH_USER:-groundtruth}
       GT_PASSWORD: ${GROUNDTRUTH_PASSWORD:?set GROUNDTRUTH_PASSWORD in .env}
+      RO_USER: ${LEDGER_RO_USER:-auditguard_ro}
+      RO_PASSWORD: ${LEDGER_RO_PASSWORD:?set LEDGER_RO_PASSWORD in .env}
     ports:
       - "127.0.0.1:5433:5432"        # host 5433: a local Postgres already uses 5432
     volumes:

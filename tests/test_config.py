@@ -9,11 +9,15 @@ from pydantic import ValidationError
 
 from auditguard.config import (
     DEFAULT_CONFIG,
+    REPO_ROOT,
+    ConfigError,
     Settings,
     build_environ,
     deep_merge,
     expand_vars,
     load_settings,
+    require_secret,
+    resolve_path,
 )
 
 
@@ -64,7 +68,35 @@ def test_budget_money_is_exact_decimal(settings: Settings) -> None:
 def test_later_phase_fields_are_optional(settings: Settings) -> None:
     assert settings.models["fallback"].id is None
     assert settings.corpus.version is None
-    assert settings.mcp.servers == {}
+
+
+def test_mcp_servers_and_allow_list(settings: Settings) -> None:
+    assert sorted(settings.mcp.servers) == [
+        "aml_engine",
+        "filing_portal",
+        "regulatory_kb",
+        "transactions",
+    ]
+    allow = settings.mcp.allow_list
+    assert allow["submit"] == ["submit_approved_payload", "get_receipt"]
+    # Rule 3: only the submit code node may call the write tool.
+    writers = [caller for caller, tools in allow.items() if "submit_approved_payload" in tools]
+    assert writers == ["submit"]
+    assert settings.mcp.max_rows == 200
+
+
+def test_require_secret_names_the_variable_not_the_value(
+    make_settings: Callable[..., Settings],
+) -> None:
+    s = make_settings(MCP_TOKEN_KEY="")
+    with pytest.raises(ConfigError, match="MCP_TOKEN_KEY"):
+        require_secret(s.mcp.token_key, "MCP_TOKEN_KEY")
+    assert require_secret(make_settings().mcp.token_key, "MCP_TOKEN_KEY") == b"test-mcp-token-key"
+
+
+def test_resolve_path_is_repo_relative(settings: Settings) -> None:
+    assert resolve_path(settings.filing_portal.db_path) == REPO_ROOT / "var" / "portal.db"
+    assert resolve_path("/abs/x.db").as_posix() == "/abs/x.db"
 
 
 def test_database_port_is_int_and_overridable(make_settings: Callable[..., Settings]) -> None:

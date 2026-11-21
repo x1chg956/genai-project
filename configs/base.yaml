@@ -48,7 +48,10 @@ retrieval: {bm25: true, vector: true, rerank: true, decompose: true,
             k_bm25: 20, k_vector: 20, k_final: 5, rrf_k: 60, score_floor: 0.2}
 
 rules: {pack: rules/IN, version: "1.0.0"}
-corpus: {manifest: corpus/manifest.yaml, version: null}   # set by the first ingest (Phase 1)
+corpus:
+  manifest: corpus/manifest.yaml
+  version: null                                # set by the first ingest
+  passages: ${CORPUS_PASSAGES:-corpus/processed/passages.jsonl}   # written by scripts/ingest.py
 
 databases:                                     # local Postgres on 5432; Compose Postgres on host 5433
   app:
@@ -63,6 +66,12 @@ databases:                                     # local Postgres on 5432; Compose
     name: ${GROUNDTRUTH_DB:-groundtruth}
     user: ${GROUNDTRUTH_USER:-groundtruth}
     password: ${GROUNDTRUTH_PASSWORD:-}
+  ledger_ro:                                   # transactions + aml_engine servers: SELECT on ledger.* only
+    host: ${POSTGRES_HOST:-localhost}
+    port: ${POSTGRES_PORT:-5432}
+    name: ${POSTGRES_DB:-auditguard}
+    user: ${LEDGER_RO_USER:-auditguard_ro}
+    password: ${LEDGER_RO_PASSWORD:-}
 
 qdrant: {url: "${QDRANT_URL:-http://localhost:6333}"}
 
@@ -72,9 +81,38 @@ guardrails:
 
 memory: {short_term: {keep_turns: 12}, long_term: {enabled: false, max_lessons: 2}}
 
-approval: {ttl_minutes: 120}
+approval:
+  ttl_minutes: 120
+  hmac_key: ${APPROVAL_HMAC_KEY:-}
+  store_path: ${APPROVAL_STORE:-var/approvals.db}   # Phase 1 SQLite; Postgres from Phase 2
+
+filing_portal:                                 # mock FIU-IND portal, own SQLite
+  db_path: ${PORTAL_DB:-var/portal.db}
+  form_limits:                                 # project placeholders; confirm with the domain reviewer
+    max_payload_bytes: 200000
+    max_grounds_chars: 8000
 
 mcp:
-  transport: stdio                             # http in Docker
-  servers: {}                                  # filled per server in Phase 1
+  transport: ${MCP_TRANSPORT:-stdio}           # http in Docker
+  http_host: ${MCP_HTTP_HOST:-127.0.0.1}
+  servers:                                     # python -m <module>; port is used for http only
+    transactions:   {module: mcp_servers.transactions,   port: 8101}
+    aml_engine:     {module: mcp_servers.aml_engine,     port: 8102}
+    regulatory_kb:  {module: mcp_servers.regulatory_kb,  port: 8103}
+    filing_portal:  {module: mcp_servers.filing_portal,  port: 8104}
+  token_key: ${MCP_TOKEN_KEY:-}                # HMAC key for agent tokens; set in .env only
+  token_ttl_minutes: 60
+  max_rows: 200                                # no tool returns more rows than this
+  allow_list:                                  # caller -> tools (docs/05); checked by every server
+    ingest_validate: [get_transactions, get_kyc_profile, get_linked_accounts]
+    single_agent: [get_transactions, get_account_summary, get_counterparty_flows, get_kyc_profile,
+                   get_linked_accounts, get_peer_baseline, get_prior_reports, evaluate_rules,
+                   get_rule_metadata, search_passages, get_passage, search_typologies,
+                   list_document_versions]
+    investigator: [get_account_summary, get_counterparty_flows, get_peer_baseline, get_prior_reports,
+                   evaluate_rules, get_rule_metadata, search_typologies]
+    researcher: [search_passages, get_passage, list_document_versions]
+    critic: [get_passage, get_transactions, get_rule_metadata]
+    build_payload: [prepare_payload]
+    submit: [submit_approved_payload, get_receipt]
   description_hashes: {}                       # pinned in Phase 6
