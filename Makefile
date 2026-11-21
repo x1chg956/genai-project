@@ -1,6 +1,6 @@
 # AuditGuard developer commands (CLAUDE.md "Commands"). Keep every target working.
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format llm-check seed ingest run-case eval up down ps db-bootstrap
+.PHONY: help install test lint format llm-check seed ingest run-case eval up down ps db-bootstrap docs-evidence
 
 # An unrelated activated virtualenv must not leak into uv's project environment.
 unexport VIRTUAL_ENV
@@ -53,3 +53,11 @@ run-case:  ## run one case from the CLI, e.g. make run-case CASE=ALR-SYN-0001 (P
 
 eval:  ## run the evaluation harness, e.g. make eval CONFIG=... SPLIT=dev (Phase 2)
 	@echo "make eval: not implemented until Phase 2 (eval/harness.py, docs/10 §3)"; exit 1
+
+# Generators that write review evidence from code (docs/11 §8). Phase 1 task 9 adds
+# scripts.gen_tool_catalogue and scripts.export_graphs; each runs as `python -m <module>`.
+EVIDENCE_SCRIPTS :=
+docs-evidence:  ## regenerate docs/tool_catalogue.md and docs/graph_*.md from code
+	@if [ -z "$(strip $(EVIDENCE_SCRIPTS))" ]; then \
+		echo "docs-evidence: no generators yet (Phase 1 task 9 adds them, docs/11 §8)"; fi
+	@for script in $(EVIDENCE_SCRIPTS); do $(UV) python -m $$script || exit 1; done
