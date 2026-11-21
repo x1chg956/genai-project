@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./eval/heldout/**)",
+      "Edit(./eval/heldout/**)",
+      "Read(./.env)",
+      "Read(./eval/redteam/attacks/**)",
+      "Edit(./eval/redteam/attacks/**)"
+    ]
+  }
+}
