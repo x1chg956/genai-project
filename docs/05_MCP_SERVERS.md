@@ -19,7 +19,7 @@ Four FastMCP 4 servers under `mcp_servers/`. Each is its own package with `serve
   - `case_id` missing → `INVALID_INPUT`; not the token's case → `OUT_OF_SCOPE`;
   - an argument failing its schema → `INVALID_INPUT` (field names only, never values);
   - an unexpected exception → `INTERNAL` (details only in the server log, with the `correlation_id`).
-- Tokens are `agt1.<claims>.<HMAC-SHA256>`, signed with `MCP_TOKEN_KEY` (`auditguard/security/tokens.py`). Claims: agent, case_id, expiry. Code nodes and hooks issue them; agents never see them. The hooks layer adds `agent_token` and `case_id` to each call and hides both from the model's tool schema (Phase 1 session 3).
+- Tokens are `agt1.<claims>.<HMAC-SHA256>`, signed with `MCP_TOKEN_KEY` (`auditguard/security/tokens.py`). Claims: agent, case_id, expiry. Code nodes and hooks issue them; agents never see them. The hooks layer (`auditguard/hooks/tools.py`, `ToolSession`) adds `agent_token` and `case_id` to each call and hides both from the model's tool schema; it also offers an agent only its allow-listed tools, counts calls against `budgets.case.tool_calls`, wraps every result shown to a model in `<data source="tool">`, and records every result for the code checks.
 - Case scope (Phase 1): `case_id` is the alert ID, and a case may read only the alerted account. Other accounts → `OUT_OF_SCOPE`. Linked accounts join the scope in Phase 2.
 - Money is a decimal string in JSON. Timestamps are UTC ISO 8601.
 - Large results are paged or aggregated. No tool returns more than 200 rows.

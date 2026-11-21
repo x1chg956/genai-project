@@ -156,6 +156,8 @@ flowchart TB
   ingest --> agent["single_agent · ReAct<br/>all R and C tools · no write tool<br/>returns SingleAgentResult"]
   agent --> dgate{{"decision_gate<br/>interrupt()"}}
   dgate -- no-file --> nofile["close_no_file"] --> e1(["END · CLOSED_NO_FILE"])
+  dgate -- "needs info" --> ninfo["needs_info"] --> e4(["END · NEEDS_INFO"])
+  dgate -- "invalid · asks again" --> dgate
   dgate -- file --> build["build_payload<br/>canonical JSON + SHA-256"]
   build --> oguard["output_guard<br/>rule-based, Phase 2"]
   oguard --> agate{{"approval_gate<br/>interrupt()"}}
@@ -164,6 +166,7 @@ flowchart TB
   portal --> memup["memory_update<br/>Phase 5"] --> e2(["END · SUBMITTED"])
   agate -- edit · new version, old approval void --> build
   agate -- reject --> e3(["END · REJECTED"])
+  agate -- "self-approval or invalid · asks again" --> agate
 
   classDef llm fill:#ece6fb,stroke:#6a4bd1,color:#1d1533
   classDef control fill:#fde3da,stroke:#cf4a24,color:#3a1307
@@ -171,11 +174,11 @@ flowchart TB
   classDef later fill:#ffffff,stroke:#6b7480,stroke-dasharray:5 3,color:#1b1f24
   class agent llm
   class dgate,agate,submit,portal control
-  class ingest,build,nofile code
+  class ingest,build,nofile,ninfo code
   class oguard,memup later
 ```
 
-`single_agent` returns one `SingleAgentResult { indicators, hypotheses, passages, draft }` as structured output. In Phase 1, `build_payload` connects straight to `approval_gate`; `output_guard` is added in Phase 2 and `memory_update` in Phase 5, without changing the other edges.
+`single_agent` returns one `SingleAgentResult { indicators, hypotheses, passages, draft }`. The model's structured output is `SingleAgentAnswer` (hypotheses, passage IDs, draft); code copies the indicators from the last `evaluate_rules` result and the passages from what the tools returned, so the model can neither invent nor alter one. A tool error in `ingest_validate`, `build_payload` or `submit` ends the run with status ERROR and the `ToolError` in `errors`. In Phase 1, `build_payload` connects straight to `approval_gate`; `output_guard` is added in Phase 2 and `memory_update` in Phase 5, without changing the other edges.
 
 1. `ingest_validate` (code) reads the alerted account's ledger and checks data quality.
 2. `single_agent` loops through the read and compute tools (ReAct) until it can return one structured result. It has no write tool, and its token cannot call one.
