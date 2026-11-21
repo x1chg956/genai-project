@@ -39,6 +39,8 @@ qdrant: {url: "${QDRANT_URL:-http://localhost:6333}"}
 guardrails:
   input: {schema: true, pseudonymise: true, prompt_guard: false, llama_guard: false, scope: true}
   output: {provenance: true, pii: true, neutral_wording: true, tipping_off: true}
+tracing: {backend: "${TRACING_BACKEND:-langsmith}", project: "${TRACING_PROJECT:-auditguard}",
+          endpoint: "${LANGSMITH_ENDPOINT:-https://api.smith.langchain.com}", api_key: "${LANGSMITH_API_KEY:-}"}   # §7
 memory: {short_term: {keep_turns: 12}, long_term: {enabled: false, max_lessons: 2}}
 approval: {ttl_minutes: 120, hmac_key: "${APPROVAL_HMAC_KEY:-}",
            store_path: "${APPROVAL_STORE:-var/approvals.db}"}   # SQLite in Phase 1, Postgres from Phase 2
@@ -121,8 +123,8 @@ Replay cache key: `(prompt_hash, model_id, params_hash, input_hash)`. A cache mi
 
 Every model call is traced from Phase 0 onward. A run without a trace ID fails (`14_MINIMUM_BAR_CHECKLIST.md`, evaluation and monitoring).
 
-- Backend from config: `tracing.backend: ${TRACING_BACKEND:-langsmith}` (`langsmith` | `langfuse` | `none`) and `tracing.project: ${TRACING_PROJECT:-auditguard}`. LangSmith is the default; confirm the choice in `PROGRESS.md`. Langfuse runs self-hosted under the Compose profile `langfuse`. Keys (`LANGSMITH_API_KEY`, `LANGFUSE_*`) come from `.env` only.
-- `tracing_callbacks(settings)` returns the handler for the chosen backend. `get_model`, `get_structured_model` and `get_guard` attach it, so no other module sets up tracing.
+- Backend from config: `tracing.backend: ${TRACING_BACKEND:-langsmith}` (`langsmith` | `langfuse` | `none`) and `tracing.project: ${TRACING_PROJECT:-auditguard}`. LangSmith is the default; confirm the choice in `PROGRESS.md`. Langfuse (self-hosted under the Compose profile `langfuse`) is wired in Phase 7; until then `langfuse` is refused with a clear error. Keys (`LANGSMITH_API_KEY`, `LANGFUSE_*`) come from `.env` only.
+- `auditguard/tracing.py`: `tracing_callbacks(settings)` returns one cached handler for the chosen backend, and `get_model`, `get_structured_model` and `get_guard` attach it, so no other module sets up tracing. Because the handler object is shared, LangChain de-duplicates it when a graph run's config carries it too, and model calls nest under the run's trace. `trace_config(settings, run_id=..., run_name=..., metadata=...)` builds the run config; `require_live_tracing` is the live-run refusal; `flush_traces` and `confirm_trace` let `llm-check` read the trace back.
 - Each graph run is one trace. Its metadata holds `case_id`, `run_id`, the experiment arm, `config_hash` and model IDs; the trace ID is written into the run record next to them.
 - `none` is allowed only for unit tests with a fake model. A live run (`run-case`, `eval`, `llm-check`) with `none` refuses to start.
 - What a trace may contain: pseudonymised prompts and scrubbed tool results only, never a key, never a de-pseudonymised value. The data is synthetic, but the same rule would apply to real data, so it is enforced now.
