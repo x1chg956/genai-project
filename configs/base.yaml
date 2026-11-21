@@ -1,0 +1,80 @@
+# AuditGuard: the one versioned config (docs/11 §1, docs/13 §2).
+# ${VAR} and ${VAR:-default} are expanded from the environment and .env by auditguard/config.py.
+# Experiment configs in configs/experiments/ override this file; they never change code paths.
+config_version: 1
+profile: IN
+timezone: Asia/Kolkata
+
+providers:
+  local:
+    base_url: ${LLM_BASE_URL:-http://127.0.0.1:8888/v1}
+    api_key: ${LLM_API_KEY:-}                  # required by the local oMLX server; set in .env only
+    timeout_s: 120
+    extra_body: {chat_template_kwargs: {enable_thinking: false}}   # oMLX/Qwen: stop thinking text leaking into content
+    structured_method: json_schema             # verified on oMLX
+    cost_per_1k_tokens: {input: "0", output: "0"}   # local runs cost nothing; tokens are still counted
+  openrouter:
+    base_url: https://openrouter.ai/api/v1
+    api_key: ${OPENROUTER_API_KEY:-}
+    timeout_s: 60
+    cost_per_1k_tokens: null                   # filled from OpenRouter pricing when used
+
+models:
+  supervisor: {provider: local, id: "${LLM_MODEL:-Qwen3.5-4B-4bit}", temperature: 0,   max_tokens: 2000}
+  specialist: {provider: local, id: "${LLM_MODEL:-Qwen3.5-4B-4bit}", temperature: 0.2, max_tokens: 3000}
+  decomposer: {provider: local, id: "${LLM_MODEL:-Qwen3.5-4B-4bit}", temperature: 0,   max_tokens: 400}
+  judge:      {provider: "${JUDGE_PROVIDER:-local}", id: "${JUDGE_MODEL:-gemma-3-1b-it-4bit}", temperature: 0, max_tokens: 1500,
+               stop: ["<end_of_turn>"]}   # oMLX misses Gemma's end-of-turn token without this (docs/13 §1b)
+  guard:      {provider: "${GUARD_PROVIDER:-local}", id: "${GUARD_MODEL:-Llama-Guard-3-1B-chat-mlx-4bit}", temperature: 0,
+               max_tokens: 20, mode: "${GUARD_MODE:-completions_raw}",
+               prompt_template: "${GUARD_PROMPT_TEMPLATE:-prompts/guard_llama_guard_3.txt}"}
+  fallback:   {provider: openrouter, id: null, enabled: false}   # pin id before enabling; a switch is logged and flagged
+
+prompts:
+  single_agent: prompts/single_agent.md
+  supervisor: prompts/supervisor.md
+  investigator: prompts/investigator.md
+  researcher: prompts/researcher.md
+  drafter: prompts/drafter.md
+  critic_judge: prompts/critic_judge.md
+
+graph: c1                                      # c0 | c1 | c2
+
+budgets:
+  case: {steps: 12, tool_calls: 20, tokens: 60000, seconds: 180, cost_usd: "0.50"}
+  critic_revisions: 2
+
+retrieval: {bm25: true, vector: true, rerank: true, decompose: true,
+            k_bm25: 20, k_vector: 20, k_final: 5, rrf_k: 60, score_floor: 0.2}
+
+rules: {pack: rules/IN, version: "1.0.0"}
+corpus: {manifest: corpus/manifest.yaml, version: null}   # set by the first ingest (Phase 1)
+
+databases:                                     # local Postgres on 5432; Compose Postgres on host 5433
+  app:
+    host: ${POSTGRES_HOST:-localhost}
+    port: ${POSTGRES_PORT:-5432}
+    name: ${POSTGRES_DB:-auditguard}
+    user: ${POSTGRES_USER:-auditguard}
+    password: ${POSTGRES_PASSWORD:-}
+  groundtruth:                                 # eval/ and data/generator/ only; never the app or MCP servers
+    host: ${POSTGRES_HOST:-localhost}
+    port: ${POSTGRES_PORT:-5432}
+    name: ${GROUNDTRUTH_DB:-groundtruth}
+    user: ${GROUNDTRUTH_USER:-groundtruth}
+    password: ${GROUNDTRUTH_PASSWORD:-}
+
+qdrant: {url: "${QDRANT_URL:-http://localhost:6333}"}
+
+guardrails:
+  input: {schema: true, pseudonymise: true, prompt_guard: false, llama_guard: false, scope: true}
+  output: {provenance: true, pii: true, neutral_wording: true, tipping_off: true}
+
+memory: {short_term: {keep_turns: 12}, long_term: {enabled: false, max_lessons: 2}}
+
+approval: {ttl_minutes: 120}
+
+mcp:
+  transport: stdio                             # http in Docker
+  servers: {}                                  # filled per server in Phase 1
+  description_hashes: {}                       # pinned in Phase 6
