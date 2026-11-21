@@ -4,7 +4,11 @@ Claude Code appends one line per completed task. Humans tick the exit gates.
 
 | Date | Phase | Task | What changed | Tests added | By |
 |---|---|---|---|---|---|
-| | 0 | | | | |
+| 2026-11-21 | 0 | 1. Project skeleton | `pyproject.toml` (uv, Python 3.12 pinned, exact dependency pins), ruff + mypy strict + pytest config, `Makefile` with every CLAUDE.md target (later-phase targets exit with "not implemented until Phase N") | — | Claude Code |
+| 2026-11-21 | 0 | 2. Config | `configs/base.yaml` per docs/11 §1 + docs/13 §2; `auditguard/config.py`: typed `Settings`, `${VAR:-default}` expansion after YAML parse, env over `.env`, experiment deep-merge, `config_hash` with masked secrets, per-role `structured_method` fallback | `tests/test_config.py` (21) | Claude Code |
+| 2026-11-21 | 0 | 3. Model factory + llm-check | `auditguard/llm.py`: `get_model`, `get_structured_model`, `get_guard` (completions client for `completions_raw`), per-model `stop`; `auditguard/guardrails/llama_guard.py` + `prompts/guard_llama_guard_3.txt`; `scripts/llm_check.py` (6 checks + guard probes, never prints keys). `make llm-check`: all required checks PASS for supervisor/specialist/decomposer (Qwen, 54k-token prompt accepted), judge (Gemma, with stop + format prompt) and guard (2/2 probes) | `tests/test_llm.py` (12), `tests/guardrails/test_llama_guard.py` (9) | Claude Code |
+| 2026-11-21 | 0 | 4. Compose | `infra/docker-compose.yml` (postgres:17.6-alpine on host 5433, qdrant v1.20.0, health checks, init script for auditguard + groundtruth with per-role CONNECT), root `docker-compose.yml` include; verified healthy and isolated in a throwaway project | manual check (4 isolation probes PASS) | Claude Code |
+| 2026-11-21 | 0 | 5. CI | `.github/workflows/ci.yml`: uv sync --locked, make lint, make test on push and PR | — | Claude Code |
 
 ## Exit gates
 
