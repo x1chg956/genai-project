@@ -55,9 +55,8 @@ run-case:  ## run one case, e.g. make run-case CASE=ALR-SYN-0001 [THREAD=RUN-...
 eval:  ## run the evaluation harness, e.g. make eval CONFIG=... SPLIT=dev (Phase 2)
 	@echo "make eval: not implemented until Phase 2 (eval/harness.py, docs/10 §3)"; exit 1
 
-# Generators that write review evidence from code (docs/11 §8). Phase 1 task 9 adds
-# scripts.gen_tool_catalogue and scripts.export_graphs; each runs as `python -m <module>`.
-EVIDENCE_SCRIPTS :=
+# Generators that write review evidence from code (docs/11 §8); each runs as `python -m <module>`.
+EVIDENCE_SCRIPTS := scripts.gen_tool_catalogue scripts.export_graphs
 docs-evidence:  ## regenerate docs/tool_catalogue.md and docs/graph_*.md from code
 	@if [ -z "$(strip $(EVIDENCE_SCRIPTS))" ]; then \
 		echo "docs-evidence: no generators yet (Phase 1 task 9 adds them, docs/11 §8)"; fi

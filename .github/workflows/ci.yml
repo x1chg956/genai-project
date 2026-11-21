@@ -1,4 +1,4 @@
-# Push tier (docs/11 §6), Phase 0 scope: lint + tests. No live model or database calls.
+# Push tier (docs/11 §6), Phase 1 scope: lint, tests, generated evidence. No live model or database calls.
 name: ci
 
 on:
@@ -22,3 +22,8 @@ jobs:
         run: make lint
       - name: Test
         run: make test
+      - name: Generated evidence is up to date (docs/11 §8)
+        run: |
+          make docs-evidence
+          git diff --exit-code -- docs/tool_catalogue.md 'docs/graph_*.md' || {
+            echo "::error::regenerate the evidence with make docs-evidence and commit it"; exit 1; }
