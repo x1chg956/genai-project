@@ -1,0 +1,119 @@
+"""Write a generated dataset: ledger rows to `auditguard`, labels to `groundtruth`.
+
+Each database is written in one transaction, after truncating the generator's tables, so a
+rerun with the same seed leaves exactly the same data.
+"""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
+
+import psycopg
+
+from auditguard.config import REPO_ROOT
+from data.generator.model import Dataset
+
+SCHEMA_DIR = REPO_ROOT / "infra" / "postgres" / "schema"
+LEDGER_TABLES = (
+    "prior_report",
+    "alert",
+    "link",
+    '"transaction"',
+    "account",
+    "entity_party",
+    "customer",
+)
+
+
+def ledger_rows(ds: Dataset) -> dict[str, list[tuple[Any, ...]]]:
+    """Row tuples per ledger table, in insert order (parents before children)."""
+    return {
+        "customer": [
+            (
+                c.customer_token,
+                c.segment,
+                c.kyc_risk_band,
+                c.declared_monthly_turnover,
+                c.onboarded_at,
+            )
+            for c in ds.customers
+        ],
+        "entity_party": [
+            (p.party_token, p.customer_token, p.display_name, p.role) for p in ds.parties
+        ],
+        "account": [
+            (a.account_token, a.customer_token, a.type, a.opened_at, a.status) for a in ds.accounts
+        ],
+        '"transaction"': [
+            (
+                r.txn.txn_id,
+                r.txn.account_token,
+                r.txn.ts,
+                r.txn.amount,
+                r.txn.currency,
+                r.txn.direction,
+                r.txn.channel,
+                r.txn.counterparty_token,
+                r.txn.memo_ref,
+                r.memo,
+            )
+            for r in ds.transactions
+        ],
+        "alert": [
+            (a.alert_id, a.account_ref, a.scenario_code, a.detected_at, a.profile)
+            for a in ds.alerts
+        ],
+    }
+
+
+def label_rows(ds: Dataset) -> dict[str, list[tuple[Any, ...]]]:
+    return {
+        "case_labels": [
+            (
+                lb.alert_id,
+                lb.account_token,
+                lb.scenario_family,
+                lb.variant,
+                lb.expected_disposition,
+                lb.planted_txn_ids,
+                lb.seed,
+                lb.spec_sha256,
+            )
+            for lb in ds.labels
+        ],
+        "scenario_params": [
+            (sp.alert_id, json.dumps(sp.params, sort_keys=True)) for sp in ds.scenario_params
+        ],
+    }
+
+
+def _insert(cur: psycopg.Cursor[Any], table: str, rows: Sequence[tuple[Any, ...]]) -> None:
+    if not rows:
+        return
+    placeholders = ", ".join(["%s"] * len(rows[0]))
+    cur.executemany(f"INSERT INTO {table} VALUES ({placeholders})", rows)  # noqa: S608 - fixed table names
+
+
+def _apply(conn: psycopg.Connection[Any], sql_file: Path) -> None:
+    conn.execute(sql_file.read_text(encoding="utf-8"))
+
+
+def write_ledger(ds: Dataset, app_conninfo: str) -> None:
+    with psycopg.connect(app_conninfo) as conn:
+        _apply(conn, SCHEMA_DIR / "auditguard_ledger.sql")
+        with conn.cursor() as cur:
+            cur.execute("TRUNCATE " + ", ".join(f"ledger.{t}" for t in LEDGER_TABLES))
+            for table, rows in ledger_rows(ds).items():
+                _insert(cur, f"ledger.{table}", rows)
+
+
+def write_labels(ds: Dataset, groundtruth_conninfo: str) -> None:
+    with psycopg.connect(groundtruth_conninfo) as conn:
+        _apply(conn, SCHEMA_DIR / "groundtruth.sql")
+        with conn.cursor() as cur:
+            cur.execute("TRUNCATE groundtruth.scenario_params, groundtruth.case_labels")
+            for table, rows in label_rows(ds).items():
+                _insert(cur, f"groundtruth.{table}", rows)

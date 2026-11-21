@@ -40,8 +40,10 @@ down:  ## stop the Docker services (data volumes are kept)
 ps:  ## show Docker service health
 	$(COMPOSE) ps
 
-seed:  ## generate synthetic ledger (Phase 1)
-	@echo "make seed: not implemented until Phase 1 (data/generator, docs/04 §2)"; exit 1
+SEED ?= 42
+PROFILE ?= tiny
+seed:  ## generate synthetic ledger into Postgres, e.g. make seed SEED=42 PROFILE=tiny
+	$(UV) python -m data.generator --seed $(SEED) --profile $(PROFILE) $(ARGS)
 
 ingest:  ## fetch + index corpus (Phase 1)
 	@echo "make ingest: not implemented until Phase 1 (scripts/ingest.py, docs/07)"; exit 1

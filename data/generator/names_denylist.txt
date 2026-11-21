@@ -1,0 +1,15 @@
+# Real people's names that must never appear in generated data (casefolded exact match).
+# Add any name a reviewer flags. The generator refuses to run if names_fictional.txt
+# contains one of these.
+Narendra Modi
+Rahul Gandhi
+Mukesh Ambani
+Gautam Adani
+Ratan Tata
+Shah Rukh Khan
+Amitabh Bachchan
+Sachin Tendulkar
+Virat Kohli
+Nirmala Sitharaman
+Shaktikanta Das
+Sanjay Malhotra

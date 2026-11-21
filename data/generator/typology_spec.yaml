@@ -1,0 +1,24 @@
+# Typology spec: drives the synthetic ledger generator (docs/04 §2).
+# OWNER: role 1 (human). Claude Code wrote the schema (data/generator/spec.py) and the ONE
+# example entry below only. Role 1 reviews it and writes every other entry (fan_in for
+# Phase 1; the remaining typologies, benign look-alikes and evasive variants for Phase 2).
+#
+# Ranges are [low, high]. A variant inherits the family parameters and overrides any of them.
+# Parameters each family understands are listed in data/generator/spec.py.
+
+- scenario_family: rapid_pass_through
+  description: credits leave within hours, balance near zero
+  parameters: {inflow_count: [8, 25], hold_hours: [2, 40], share_out: [0.85, 0.99],
+               inflow_amount: [5000, 45000], span_days: [3, 10]}
+  variants:
+    standard:
+      expected_disposition: escalate_for_review
+    evasive_slow:
+      expected_disposition: escalate_for_review
+      parameters: {hold_hours: [50, 96], span_days: [10, 20]}
+    benign_lookalike_payroll:
+      expected_disposition: no_action
+      parameters: {inflow_count: [1, 1], distinct_senders: [1, 1], inflow_amount: [400000, 900000],
+                   outflow_beneficiaries: [12, 30], share_out: [0.97, 1.00]}
+
+# TODO(role1): fan_in entry (Phase 1 needs it: 2 dev cases), then Phase 2 typologies.
