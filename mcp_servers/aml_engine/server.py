@@ -20,6 +20,7 @@ from mcp_servers.aml_engine.engine.registry import RulePack, load_rule_pack
 from mcp_servers.aml_engine.models import RuleResults
 from mcp_servers.common.errors import tool_error
 from mcp_servers.common.guard import ToolGuard, guard_from_settings
+from mcp_servers.common.labels import READ_ONLY
 from mcp_servers.common.ledger import (
     LedgerRepo,
     PostgresLedgerRepo,
@@ -31,7 +32,7 @@ from mcp_servers.common.ledger import (
 def build_server(repo: LedgerRepo, pack: RulePack, guard: ToolGuard, *, tz: ZoneInfo) -> FastMCP:
     mcp = FastMCP("aml_engine", middleware=[guard])
 
-    @mcp.tool
+    @mcp.tool(tags={"compute"}, annotations=READ_ONLY)
     def evaluate_rules(
         agent_token: str,
         case_id: str,
@@ -77,7 +78,7 @@ def build_server(repo: LedgerRepo, pack: RulePack, guard: ToolGuard, *, tz: Zone
             results=results,
         )
 
-    @mcp.tool
+    @mcp.tool(tags={"compute"}, annotations=READ_ONLY)
     def get_rule_metadata(agent_token: str, case_id: str, rule_id: str) -> RuleMeta | ToolError:
         """C. A rule's name, version, source tag, parameters, interpretation and linked
         passage ids."""

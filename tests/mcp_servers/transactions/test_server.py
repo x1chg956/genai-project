@@ -44,6 +44,7 @@ def run(tool: str, max_rows: int = 200, agent: str = "single_agent", **args: Any
 # get_transactions
 
 
+@pytest.mark.tool("get_transactions")
 def test_get_transactions_happy() -> None:
     r = run("get_transactions", from_date="2026-03-01", to_date="2026-03-31")
     assert not r.is_error
@@ -59,6 +60,7 @@ def test_get_transactions_happy() -> None:
     )
 
 
+@pytest.mark.tool("get_transactions")
 def test_get_transactions_local_day_boundary() -> None:
     # TXN 6 is at 23:59 IST on 31 March: in a range ending on the 31st, not on the 30th.
     r = run("get_transactions", from_date="2026-03-30", to_date="2026-03-30")
@@ -67,6 +69,7 @@ def test_get_transactions_local_day_boundary() -> None:
     assert [t["txn_id"] for t in r.result["transactions"]] == ["TXN-SYN-0000006"]
 
 
+@pytest.mark.tool("get_transactions")
 def test_get_transactions_pages_never_overlap() -> None:
     pages = [
         run("get_transactions", max_rows=3, from_date="2026-03-01", to_date="2026-03-31", page=p)
@@ -80,12 +83,14 @@ def test_get_transactions_pages_never_overlap() -> None:
     assert len({p.result["ledger_ref"] for p in pages}) == 1  # ref names the range, not the page
 
 
+@pytest.mark.tool("get_transactions")
 def test_get_transactions_never_returns_memo_text() -> None:
     r = run("get_transactions", from_date="2026-03-01", to_date="2026-03-31")
     assert all("memo" not in t for t in r.result["transactions"])
     assert all(t["memo_ref"].startswith("MEMO-SYN-") for t in r.result["transactions"])
 
 
+@pytest.mark.tool("get_transactions")
 @pytest.mark.parametrize(
     "args",
     [
@@ -104,6 +109,7 @@ def test_get_transactions_invalid_input(args: dict[str, Any]) -> None:
 # get_account_summary
 
 
+@pytest.mark.tool("get_account_summary")
 def test_get_account_summary_happy() -> None:
     r = run("get_account_summary", window_days=7)
     assert not r.is_error
@@ -139,6 +145,7 @@ def test_get_account_summary_happy() -> None:
     ]
 
 
+@pytest.mark.tool("get_account_summary")
 @pytest.mark.parametrize("window_days", [0, 367, "seven"])
 def test_get_account_summary_invalid_input(window_days: object) -> None:
     r = run("get_account_summary", window_days=window_days)
@@ -148,6 +155,7 @@ def test_get_account_summary_invalid_input(window_days: object) -> None:
 # get_counterparty_flows
 
 
+@pytest.mark.tool("get_counterparty_flows")
 def test_get_counterparty_flows_happy() -> None:
     r = run("get_counterparty_flows", window_days=7, top_k=2)
     assert not r.is_error
@@ -161,6 +169,7 @@ def test_get_counterparty_flows_happy() -> None:
     )
 
 
+@pytest.mark.tool("get_counterparty_flows")
 def test_get_counterparty_flows_window_boundary() -> None:
     # TXN 7 (1 March) is outside a 30-day window ending 31 March and inside a 31-day one.
     def cpty1(days: int) -> dict[str, Any]:
@@ -171,6 +180,7 @@ def test_get_counterparty_flows_window_boundary() -> None:
     assert (cpty1(31)["credit_count"], cpty1(31)["credit_total"]) == (3, "405.25")
 
 
+@pytest.mark.tool("get_counterparty_flows")
 @pytest.mark.parametrize(
     "args", [{"window_days": 7, "top_k": 0}, {"window_days": 7, "top_k": 51}, {"top_k": 5}]
 )
@@ -203,6 +213,7 @@ def test_wrong_agent_token(tool: str, extra: dict[str, Any]) -> None:
     assert forged.code == "FORBIDDEN"
 
 
+@pytest.mark.tool("get_account_summary")
 def test_out_of_scope_case() -> None:
     # A token for case 1 cannot read case 2, and case 1 cannot read case 2's account.
     r = call(
@@ -220,6 +231,7 @@ def test_out_of_scope_case() -> None:
     assert r.code == "OUT_OF_SCOPE"
 
 
+@pytest.mark.tool("get_account_summary")
 def test_unknown_case_not_found() -> None:
     r = run("get_account_summary", case_id="ALR-SYN-9999", window_days=7)
     assert r.code == "NOT_FOUND"

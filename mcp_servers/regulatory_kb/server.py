@@ -16,6 +16,7 @@ from auditguard.config import Settings, resolve_path
 from auditguard.schemas import Passage, ToolError
 from mcp_servers.common.errors import tool_error
 from mcp_servers.common.guard import ToolGuard, guard_from_settings
+from mcp_servers.common.labels import READ_ONLY
 from mcp_servers.regulatory_kb.index import Bm25Index, load_corpus, to_passage
 from mcp_servers.regulatory_kb.models import PassageSearch
 
@@ -25,7 +26,7 @@ def build_server(
 ) -> FastMCP:
     mcp = FastMCP("regulatory_kb", middleware=[guard])
 
-    @mcp.tool
+    @mcp.tool(tags={"read"}, annotations=READ_ONLY)
     def search_passages(
         agent_token: str,
         case_id: str,
@@ -51,7 +52,7 @@ def build_server(
             passages=found,
         )
 
-    @mcp.tool
+    @mcp.tool(tags={"read"}, annotations=READ_ONLY)
     def get_passage(agent_token: str, case_id: str, passage_id: str) -> Passage | ToolError:
         """R. One passage by id, with its document version and clause reference."""
         p = index.by_id.get(passage_id)

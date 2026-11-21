@@ -50,6 +50,7 @@ def run(
     return call(server(repo), tool, {"agent_token": token(agent), "case_id": CASE} | args)
 
 
+@pytest.mark.tool("evaluate_rules")
 def test_evaluate_rules_happy_matches_pure_functions() -> None:
     """On generated data, the tool returns exactly what the rule functions return."""
     ds = generate(load_spec(REPO_ROOT / "data" / "generator" / "typology_spec.yaml"), seed=42)
@@ -74,6 +75,7 @@ def test_evaluate_rules_happy_matches_pure_functions() -> None:
         assert r.result["txn_count"] == len(rows)
 
 
+@pytest.mark.tool("evaluate_rules")
 def test_evaluate_rules_subset_and_decimal_strings() -> None:
     repo = small_repo()
     r = run("evaluate_rules", repo, ledger_ref=ref_for(repo), rule_ids=["R07"])
@@ -83,6 +85,7 @@ def test_evaluate_rules_subset_and_decimal_strings() -> None:
     assert isinstance(res["score"], str)
 
 
+@pytest.mark.tool("evaluate_rules")
 @pytest.mark.parametrize(
     "ledger_ref",
     ["nonsense", "ledger:v1:ACCT-SYN-000001:2026-03-31:2026-03-01:0123456789abcdef"],
@@ -92,6 +95,7 @@ def test_evaluate_rules_invalid_input(ledger_ref: str) -> None:
     assert r.is_error and r.code == "INVALID_INPUT"
 
 
+@pytest.mark.tool("evaluate_rules")
 def test_evaluate_rules_unknown_rule_and_profile() -> None:
     repo = small_repo()
     assert run("evaluate_rules", repo, ledger_ref=ref_for(repo), rule_ids=["R99"]).code == (
@@ -102,6 +106,7 @@ def test_evaluate_rules_unknown_rule_and_profile() -> None:
     )
 
 
+@pytest.mark.tool("evaluate_rules")
 def test_evaluate_rules_refuses_a_changed_ledger() -> None:
     before = small_repo()
     ref = ref_for(before)
@@ -113,6 +118,7 @@ def test_evaluate_rules_refuses_a_changed_ledger() -> None:
     assert r.code == "INVALID_INPUT" and "changed" in r.result["message"]
 
 
+@pytest.mark.tool("evaluate_rules")
 def test_evaluate_rules_ledger_defect_is_reported() -> None:
     dup = small_ledger()[0]
     repo = InMemoryLedgerRepo(
@@ -122,6 +128,7 @@ def test_evaluate_rules_ledger_defect_is_reported() -> None:
     assert r.code == "INVALID_INPUT" and "duplicate" in r.result["message"]
 
 
+@pytest.mark.tool("get_rule_metadata")
 def test_get_rule_metadata_happy() -> None:
     r = run("get_rule_metadata", rule_id="R04")
     assert not r.is_error
@@ -130,11 +137,14 @@ def test_get_rule_metadata_happy() -> None:
     assert r.result["interpretation"]
 
 
+@pytest.mark.tool("get_rule_metadata")
 def test_get_rule_metadata_invalid_input() -> None:
     assert run("get_rule_metadata", rule_id="R99").code == "NOT_FOUND"
     assert run("get_rule_metadata").code == "INVALID_INPUT"
 
 
+@pytest.mark.tool("evaluate_rules")
+@pytest.mark.tool("get_rule_metadata")
 def test_wrong_agent_token() -> None:
     repo = small_repo()
     for agent in ("researcher", "build_payload", "submit", "ingest_validate"):
@@ -144,6 +154,8 @@ def test_wrong_agent_token() -> None:
     assert run("get_rule_metadata", agent="critic", rule_id="R01").code is None  # allowed
 
 
+@pytest.mark.tool("evaluate_rules")
+@pytest.mark.tool("get_rule_metadata")
 def test_out_of_scope_case() -> None:
     repo = small_repo()
     r = run("evaluate_rules", repo, ledger_ref=ref_for(repo, OTHER_ACCT))

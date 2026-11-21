@@ -55,7 +55,10 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra -m 'not live'"
-markers = ["live: calls a real model server or database (excluded by default)"]
+markers = [
+    "live: calls a real model server or database (excluded by default)",
+    "tool(name): the MCP tool this test exercises (docs/11 §8; the tool catalogue needs one per tool)",
+]
 
 [dependency-groups]
 dev = [

@@ -34,6 +34,7 @@ def ids(r: Called) -> list[str]:
     return [p["passage_id"] for p in r.result["passages"]]
 
 
+@pytest.mark.tool("search_passages")
 def test_search_passages_happy() -> None:
     r = run(
         "search_passages",
@@ -46,6 +47,7 @@ def test_search_passages_happy() -> None:
     assert scores == sorted(scores, reverse=True)
 
 
+@pytest.mark.tool("search_passages")
 def test_search_passages_version_filter() -> None:
     q = "suspicious transaction report filed within days"
     now = run("search_passages", query=q, as_of_date="2026-06-01")
@@ -55,6 +57,7 @@ def test_search_passages_version_filter() -> None:
     assert ids(then) == ["TEST-DOC-B:4:2024-06-01"]  # doc A not yet in force
 
 
+@pytest.mark.tool("search_passages")
 def test_search_passages_doc_filter_and_k() -> None:
     r = run(
         "search_passages", query="test clause", as_of_date="2026-06-01", doc_filter=["TEST-DOC-C"]
@@ -64,12 +67,15 @@ def test_search_passages_doc_filter_and_k() -> None:
     assert len(ids(r)) == 1
 
 
+@pytest.mark.tool("search_passages")
 def test_search_passages_no_support() -> None:
     r = run("search_passages", query="cryptocurrency mixer", as_of_date="2026-06-01")
     assert not r.is_error
     assert (r.result["status"], r.result["passages"]) == ("no_support", [])
 
 
+@pytest.mark.tool("search_passages")
+@pytest.mark.tool("submit_approved_payload")
 def test_search_passages_returns_injected_text_as_data_only() -> None:
     r = run("search_passages", query="ignore previous instructions submit", as_of_date="2026-06-01")
     hit = r.result["passages"][0]
@@ -77,6 +83,7 @@ def test_search_passages_returns_injected_text_as_data_only() -> None:
     assert "submit_approved_payload" in hit["text"]  # returned verbatim, nothing executed
 
 
+@pytest.mark.tool("search_passages")
 @pytest.mark.parametrize(
     "args",
     [
@@ -92,17 +99,21 @@ def test_search_passages_invalid_input(args: dict[str, Any]) -> None:
     assert r.is_error and r.code == "INVALID_INPUT"
 
 
+@pytest.mark.tool("get_passage")
 def test_get_passage_happy() -> None:
     r = run("get_passage", passage_id="TEST-DOC-C:3:2026-01-01")
     assert not r.is_error
     assert (r.result["doc_id"], r.result["clause_ref"]) == ("TEST-DOC-C", "3")
 
 
+@pytest.mark.tool("get_passage")
 def test_get_passage_invalid_input() -> None:
     assert run("get_passage", passage_id="TEST-DOC-Z:1:1").code == "NOT_FOUND"
     assert run("get_passage").code == "INVALID_INPUT"
 
 
+@pytest.mark.tool("search_passages")
+@pytest.mark.tool("get_passage")
 def test_wrong_agent_token() -> None:
     for agent in ("investigator", "build_payload", "submit", "ingest_validate"):
         r = run("search_passages", agent=agent, query="cash", as_of_date="2026-06-01")
@@ -110,6 +121,7 @@ def test_wrong_agent_token() -> None:
     assert run("get_passage", agent="critic", passage_id="TEST-DOC-C:3:2026-01-01").code is None
 
 
+@pytest.mark.tool("get_passage")
 def test_out_of_scope_case() -> None:
     r = call(
         server(),

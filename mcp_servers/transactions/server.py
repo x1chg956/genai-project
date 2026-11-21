@@ -20,6 +20,7 @@ from auditguard.ledger_ref import make_ledger_ref
 from auditguard.schemas import Alert, ToolError
 from mcp_servers.common.errors import tool_error
 from mcp_servers.common.guard import ToolGuard, guard_from_settings
+from mcp_servers.common.labels import READ_ONLY
 from mcp_servers.common.ledger import (
     LedgerRepo,
     PostgresLedgerRepo,
@@ -50,7 +51,7 @@ def build_server(repo: LedgerRepo, guard: ToolGuard, *, tz: ZoneInfo, max_rows: 
         end = alert.detected_at.astimezone(tz).date()
         return end - timedelta(days=window_days - 1), end
 
-    @mcp.tool
+    @mcp.tool(tags={"read"}, annotations=READ_ONLY)
     def get_transactions(
         agent_token: str,
         case_id: str,
@@ -84,7 +85,7 @@ def build_server(repo: LedgerRepo, guard: ToolGuard, *, tz: ZoneInfo, max_rows: 
             transactions=rows[start : start + max_rows],
         )
 
-    @mcp.tool
+    @mcp.tool(tags={"read"}, annotations=READ_ONLY)
     def get_account_summary(
         agent_token: str, case_id: str, account_token: str, window_days: WindowDays
     ) -> AccountSummary | ToolError:
@@ -107,7 +108,7 @@ def build_server(repo: LedgerRepo, guard: ToolGuard, *, tz: ZoneInfo, max_rows: 
             by_channel=stats.channel_stats(rows),
         )
 
-    @mcp.tool
+    @mcp.tool(tags={"read"}, annotations=READ_ONLY)
     def get_counterparty_flows(
         agent_token: str,
         case_id: str,

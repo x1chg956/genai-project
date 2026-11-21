@@ -87,6 +87,7 @@ def portal(tmp_path: Path) -> Portal:
 # prepare_payload
 
 
+@pytest.mark.tool("prepare_payload")
 def test_prepare_payload_happy(portal: Portal) -> None:
     r = portal.prepare()
     assert not r.is_error
@@ -95,12 +96,14 @@ def test_prepare_payload_happy(portal: Portal) -> None:
     assert r.result["form_limit_ok"] is True
 
 
+@pytest.mark.tool("prepare_payload")
 def test_prepare_payload_form_limits(portal: Portal) -> None:
     r = portal.prepare({**PAYLOAD, "grounds_of_suspicion": "x" * 101})
     assert r.result["form_limit_ok"] is False
     assert "grounds_of_suspicion" in r.result["form_limit_issues"][0]
 
 
+@pytest.mark.tool("prepare_payload")
 @pytest.mark.parametrize(
     "payload",
     [
@@ -118,6 +121,7 @@ def test_prepare_payload_invalid_input(portal: Portal, payload: dict[str, Any]) 
 # submit_approved_payload
 
 
+@pytest.mark.tool("submit_approved_payload")
 def test_submit_approved_payload_happy(portal: Portal) -> None:
     sha = portal.prepare().result["sha256"]
     portal.approve(sha)
@@ -127,6 +131,7 @@ def test_submit_approved_payload_happy(portal: Portal) -> None:
     assert (r.result["case_id"], r.result["payload_sha256"]) == (CASE, sha)
 
 
+@pytest.mark.tool("submit_approved_payload")
 def test_submit_stale_hash(portal: Portal) -> None:
     """Editing after approval: the new draft no longer matches the approved hash."""
     sha1 = portal.prepare().result["sha256"]
@@ -141,6 +146,7 @@ def test_submit_stale_hash(portal: Portal) -> None:
     assert r.code == "STALE_HASH"
 
 
+@pytest.mark.tool("submit_approved_payload")
 def test_submit_self_approval(portal: Portal) -> None:
     sha = portal.prepare().result["sha256"]
     portal.approve(sha, approver_id="analyst-1")
@@ -148,6 +154,7 @@ def test_submit_self_approval(portal: Portal) -> None:
     assert r.code == "APPROVAL_INVALID" and "self-approval" in r.result["message"]
 
 
+@pytest.mark.tool("submit_approved_payload")
 def test_submit_expired(tmp_path: Path) -> None:
     early = Portal(tmp_path)
     sha = early.prepare().result["sha256"]
@@ -157,6 +164,7 @@ def test_submit_expired(tmp_path: Path) -> None:
     assert r.code == "APPROVAL_INVALID" and "expired" in r.result["message"]
 
 
+@pytest.mark.tool("submit_approved_payload")
 def test_submit_idempotent(portal: Portal) -> None:
     sha = portal.prepare().result["sha256"]
     portal.approve(sha)
@@ -174,6 +182,7 @@ def test_submit_idempotent(portal: Portal) -> None:
         ({"case_id": OTHER_CASE}, "another case"),
     ],
 )
+@pytest.mark.tool("submit_approved_payload")
 def test_submit_approval_invalid(portal: Portal, over: dict[str, Any], message: str) -> None:
     sha = portal.prepare().result["sha256"]
     portal.approve(sha, **over)
@@ -181,6 +190,7 @@ def test_submit_approval_invalid(portal: Portal, over: dict[str, Any], message: 
     assert r.code == "APPROVAL_INVALID" and message in r.result["message"]
 
 
+@pytest.mark.tool("submit_approved_payload")
 def test_submit_forged_signature_and_missing_approval(portal: Portal) -> None:
     sha = portal.prepare().result["sha256"]
     portal.approve(sha, key=b"attacker-key")
@@ -188,6 +198,7 @@ def test_submit_forged_signature_and_missing_approval(portal: Portal) -> None:
     assert portal.submit(sha, approval_id="APR-404").code == "APPROVAL_INVALID"
 
 
+@pytest.mark.tool("submit_approved_payload")
 def test_submit_approved_payload_invalid_input(portal: Portal) -> None:
     sha = portal.prepare().result["sha256"]
     portal.approve(sha)
@@ -198,6 +209,7 @@ def test_submit_approved_payload_invalid_input(portal: Portal) -> None:
 # get_receipt
 
 
+@pytest.mark.tool("get_receipt")
 def test_get_receipt_happy(portal: Portal) -> None:
     sha = portal.prepare().result["sha256"]
     portal.approve(sha)
@@ -206,6 +218,7 @@ def test_get_receipt_happy(portal: Portal) -> None:
     assert r.result == receipt
 
 
+@pytest.mark.tool("get_receipt")
 def test_get_receipt_invalid_input(portal: Portal) -> None:
     assert portal.run("get_receipt", "submit", idempotency_key="nope").code == "NOT_FOUND"
     assert portal.run("get_receipt", "submit").code == "INVALID_INPUT"
@@ -214,6 +227,8 @@ def test_get_receipt_invalid_input(portal: Portal) -> None:
 # identity and scope
 
 
+@pytest.mark.tool("prepare_payload")
+@pytest.mark.tool("submit_approved_payload")
 def test_wrong_agent_token(portal: Portal) -> None:
     """Rule 3: only the submit code node can write; no agent holds that token."""
     sha = portal.prepare().result["sha256"]
@@ -233,6 +248,7 @@ def test_wrong_agent_token(portal: Portal) -> None:
     )
 
 
+@pytest.mark.tool("get_receipt")
 def test_out_of_scope_case(portal: Portal) -> None:
     r = call(
         portal.server,
@@ -242,6 +258,7 @@ def test_out_of_scope_case(portal: Portal) -> None:
     assert r.code == "OUT_OF_SCOPE"
 
 
+@pytest.mark.tool("prepare_payload")
 def test_decimal_payload_value_round_trips(portal: Portal) -> None:
     r = portal.prepare({"amount": str(Decimal("10.50"))})
     assert r.result["canonical_json"] == '{"amount":"10.50"}'

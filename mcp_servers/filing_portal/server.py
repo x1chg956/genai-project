@@ -21,6 +21,7 @@ from auditguard.config import FormLimits, Settings, require_secret, resolve_path
 from auditguard.schemas import Receipt, ToolError
 from mcp_servers.common.errors import tool_error
 from mcp_servers.common.guard import Clock, ToolGuard, guard_from_settings, utcnow
+from mcp_servers.common.labels import READ_ONLY, WRITES
 from mcp_servers.filing_portal.db import PortalDb
 from mcp_servers.filing_portal.models import PayloadPreview
 
@@ -54,7 +55,7 @@ def build_server(
 ) -> FastMCP:
     mcp = FastMCP("filing_portal", middleware=[guard])
 
-    @mcp.tool
+    @mcp.tool(tags={"write"}, annotations=WRITES)
     def prepare_payload(
         agent_token: str,
         case_id: str,
@@ -94,7 +95,7 @@ def build_server(
             form_limit_issues=issues,
         )
 
-    @mcp.tool
+    @mcp.tool(tags={"write"}, annotations=WRITES)
     def submit_approved_payload(
         agent_token: str,
         case_id: str,
@@ -153,7 +154,7 @@ def build_server(
             )
             return receipt
 
-    @mcp.tool
+    @mcp.tool(tags={"read"}, annotations=READ_ONLY)
     def get_receipt(agent_token: str, case_id: str, idempotency_key: str) -> Receipt | ToolError:
         """R. The receipt for a submission, if one was made. Call this before any retry of
         submit_approved_payload after a timeout."""
