@@ -5,15 +5,20 @@ description = "Evidence-grounded assistant for AML alert investigation and STR p
 readme = "CLAUDE.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fastmcp==4.1.8",
+    "fastmcp==4.1.6",
     "httpx==0.28.1",
-    "langchain-openai==1.8.5",
+    "langchain-openai==1.7.4",
+    "langchain-core==1.7.6",
     "langsmith==0.14.17",
     "langchain[mcp]==1.4.9",
+    "langgraph==1.2.20",
+    "langgraph-checkpoint==4.3.1",
+    "langgraph-checkpoint-sqlite==3.1.3",
+    "langgraph-prebuilt==1.1.1",
     "psycopg[binary]==3.3.8",
-    "pydantic==2.14.4",
+    "pydantic==2.14.3",
     "python-dotenv==1.2.4",
-    "pyyaml==6.0.4",
+    "pyyaml==6.0.3",
     "rank-bm25==0.2.2",
 ]
 
@@ -55,6 +60,11 @@ markers = ["live: calls a real model server or database (excluded by default)"]
 dev = [
     "mypy==2.4.1",
     "pytest==9.2.0",
-    "ruff==0.17.6",
-    "types-pyyaml==6.0.12.20261113",
+    "ruff==0.17.4",
+    "types-pyyaml==6.0.12.20261103",
 ]
+
+[tool.uv]
+# Pin rule (CLAUDE.md): only releases at least two weeks old. Move this date forward
+# deliberately when upgrading, never past today minus 14 days.
+exclude-newer = "2026-11-07T00:00:00Z"
