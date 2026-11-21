@@ -102,3 +102,22 @@ def test_a_results_evidence_id_is_citable() -> None:
     assert "EV-004" in known_ids([summary])
     failed = ToolRecord("get_account_summary", {}, {"error_code": "OUT_OF_SCOPE"}, True, "")
     assert known_ids([failed]) == set()
+
+
+def test_fired_claim_check_has_no_false_positives_seen_live() -> None:
+    from auditguard.checks.evidence import contradicted_rule_claims
+
+    fired = {"R01": False, "R04": False, "R07": False}
+    live = [
+        "The absence of fired rules and the presence of multiple distinct senders support a "
+        "benign explanation of business activity.",
+        "The account metadata for R04 indicates verified_payroll_employer, suggesting credits "
+        "are matched to debits within the 48-hour window.",
+        "Rule R04 was not triggered.",
+        "R07 failed to fire because only 8 senders were seen.",
+    ]
+    for text in live:
+        assert not contradicted_rule_claims(draft(text, ["R04"]), fired), text
+    assert contradicted_rule_claims(
+        draft("Rule R04 (rapid pass-through) was triggered.", ["R04"]), fired
+    )

@@ -94,21 +94,25 @@ def unsupported_numbers(draft: DraftReport, allowed: set[Decimal]) -> list[str]:
     return sorted(set(bad))
 
 
-_FIRED_WORDS = re.compile(r"\b(fired|fires|triggered|triggers|was met|matched|flagged)\b", re.I)
-_NEGATION = re.compile(r"\b(not|no|did not|didn't|never|neither|nor)\b", re.I)
+# "R04 ... fired / was triggered": a rule ID, then a firing verb within the same clause.
+_FIRED_CLAIM = re.compile(
+    r"\b(R\d{2})\b([^.;:]{0,40}?)\b(fired|fires|triggered|triggers|was met)\b", re.I
+)
+_NEGATION = re.compile(r"\b(not|no|never|neither|nor|without|absence|failed to|didn't)\b", re.I)
 
 
 def contradicted_rule_claims(draft: DraftReport, fired: dict[str, bool]) -> list[str]:
-    """Sentences that say a rule fired when the rule engine says it did not.
+    """Sentences that say a named rule fired when the rule engine says it did not.
 
-    Deliberately narrow: a sentence citing a not-fired rule may not use a "fired" word
-    unless it also negates. The semantic check of every claim is the critic's job (Phase 4).
+    Deliberately narrow: only "<rule ID> ... fired/triggered" in one clause, with no negation
+    between the two, counts. "The absence of fired rules" or "credits are matched" do not.
+    The semantic check of every claim is the critic's job (Phase 4).
     """
     bad: list[str] = []
     for sentence in draft.sections.sentences():
-        not_fired = [rid for rid in sentence.evidence_ids if fired.get(rid) is False]
-        if not_fired and _FIRED_WORDS.search(sentence.text) and not _NEGATION.search(sentence.text):
-            bad.append(
-                f"{', '.join(not_fired)} did not fire, but the draft says: {sentence.text!r}"
-            )
+        for match in _FIRED_CLAIM.finditer(sentence.text):
+            rule_id, between = match.group(1).upper(), match.group(2)
+            if fired.get(rule_id) is False and not _NEGATION.search(between):
+                bad.append(f"{rule_id} did not fire, but the draft says: {sentence.text!r}")
+                break
     return bad
