@@ -1,0 +1,17 @@
+rule_id: R07
+name: fan_in
+version: 1.0.0
+source_tag: project_heuristic
+effective_from: 2026-01-01
+parameters:
+  min_senders: 20                    # S
+  window_days: 7                     # W
+linked_passage_ids: []               # filled after ingestion
+benign_counter_check: verified_collection_account
+explanation_template_id: R07_v1
+interpretation: >-
+  Counts distinct counterparty_token values on credit transactions within one window of W
+  consecutive calendar days in Asia/Kolkata (last local date minus first at most W - 1).
+  Credits without a counterparty (for example cash) are not senders. The rule reports the
+  window with the most distinct senders (earliest on ties). Fires when that count >= S.
+  score = distinct senders / S.

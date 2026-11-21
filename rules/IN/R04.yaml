@@ -1,0 +1,20 @@
+rule_id: R04
+name: rapid_pass_through
+version: 1.0.0
+source_tag: project_heuristic
+effective_from: 2026-01-01
+parameters:
+  share_out_min: "0.90"              # P = 90%
+  hold_hours_max: 48                 # H
+  residual_balance_max: "1000.00"
+linked_passage_ids: []               # filled after ingestion
+benign_counter_check: verified_payroll_employer
+explanation_template_id: R04_v1
+interpretation: >-
+  Over the whole ledger slice of one account, credits are matched to later debits first-in
+  first-out (a credit and a debit at the same instant: credit first). The value of each match
+  counts as passed through when the debit is at most H elapsed hours after the credit (H
+  inclusive; hours, not calendar days, so no time zone is involved). share_out = value passed
+  through within H / total credit value. residual_balance = credit value still unmatched at the
+  end of the slice. Fires when total credits > 0, share_out >= P (exact comparison) and
+  residual_balance <= residual_balance_max. score = share_out / P.

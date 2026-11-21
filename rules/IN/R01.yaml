@@ -1,0 +1,19 @@
+rule_id: R01
+name: cash_structuring
+version: 1.0.0
+source_tag: project_heuristic        # T must be tagged with its PML Rules source before use (docs/04 §3)
+effective_from: 2026-01-01
+parameters:
+  threshold: "1000000.00"            # T: placeholder until the domain reviewer confirms the PML Rules figure
+  lower_ratio: "0.80"                # L = 0.8 x T
+  min_count: 3                       # N
+  window_days: 30                    # W
+linked_passage_ids: []               # filled after ingestion
+benign_counter_check: verified_cash_business
+explanation_template_id: R01_v1
+interpretation: >-
+  Counts credit transactions on channel CASH with L <= amount < T (L inclusive, T exclusive).
+  "Within W days" means one window of W consecutive calendar days in Asia/Kolkata: the last
+  qualifying deposit's local date minus the first's is at most W - 1 days. The rule reports the
+  window with the most qualifying deposits (earliest on ties). Fires when that count >= N.
+  score = count / N.
