@@ -11,7 +11,7 @@ Before Phase 0: `cp .env.example .env` and fill in `LLM_API_KEY` for the local o
 > Do Phase 1 tasks 1–3 from docs/02_BUILD_PHASES.md. Use docs/03 §3 for schemas and docs/04 for the generator (tiny profile) and rules R01, R04, R07. Write the typology_spec.yaml schema and ONE example entry only; I will write the rest. Rules must be pure functions with ≥5 Decimal-exact tests each. Do not read the groundtruth database when writing rules.
 
 ## Phase 1, session 2: MCP servers
-> Do Phase 1 task 4: the four FastMCP servers at their Phase 1 tool sets per docs/05, stdio transport, structured ToolError results, agent tokens and case scope checks, and the listed tests. Check the current FastMCP and langchain-mcp-adapters docs before coding.
+> Do Phase 1 task 4: the four FastMCP servers at their Phase 1 tool sets per docs/05, stdio transport, structured ToolError results, agent tokens and case scope checks, and the listed tests. Check the current FastMCP and `langchain.mcp` docs before coding.
 
 ## Phase 1, session 3: single agent and graph
 > Do Phase 1 tasks 5–8: code nodes ingest_validate, build_payload, submit; the single ReAct agent with prompts/single_agent.md (six slots, docs/06); the graph in docs/03 §2 (C1) with decision_gate and approval_gate using interrupt() per docs/08 §2; a SQLite checkpointer; and the CLI run-case command. Show the kill-and-resume and edit-voids-approval behaviour in tests.

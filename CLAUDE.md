@@ -33,7 +33,7 @@ Read `docs/00_INDEX.md` before starting any task. Work one phase at a time from 
 | Language | Python 3.11+, `uv` for dependencies, `pyproject.toml` |
 | Models | Any OpenAI-compatible endpoint through `langchain-openai` `ChatOpenAI(base_url=...)`, chosen per role in config. **Default: the local oMLX server at `http://127.0.0.1:8888/v1`, model `Qwen3.5-4B-4bit`**, for supervisor, specialists and query decomposition. The server needs a bearer key (`LLM_API_KEY` in `.env`), and thinking mode must be turned off on every call (`extra_body: {chat_template_kwargs: {enable_thinking: false}}`). Judge from a different model family, not Qwen: local `gemma-3-1b-it-4bit` by default (not yet validated; OpenRouter is the alternative). See `docs/13_MODEL_PROVIDERS.md` |
 | Orchestration | LangGraph, `interrupt()` and `Command(resume=...)`, Postgres checkpointer (`langgraph-checkpoint-postgres`), LangGraph store for long-term memory |
-| Tools | FastMCP servers loaded into LangGraph with `langchain-mcp-adapters`. stdio in development, streamable HTTP in Docker |
+| Tools | FastMCP 4 servers loaded into LangGraph with `langchain.mcp` (`MCPAdapter`, from `langchain[mcp]`; it replaced the unmaintained `langchain-mcp-adapters`). stdio in development, streamable HTTP in Docker |
 | Retrieval | Qdrant, `rank-bm25`, local `BAAI/bge-small-en-v1.5` embeddings, cross-encoder reranker (`cross-encoder/ms-marco-MiniLM-L-6-v2`), Reciprocal Rank Fusion |
 | Guardrails | Llama Prompt Guard 2 on CPU, Llama Guard (local `Llama-Guard-3-1B-chat-mlx-4bit` in `completions_raw` mode by default; Llama Guard 4 on OpenRouter as the alternative, see `docs/13` §1b), own rules in hooks |
 | Data | PostgreSQL (ledger, cases, approvals, audit, checkpoints); separate DB for ground truth; SQLite for the mock portal |
@@ -42,7 +42,7 @@ Read `docs/00_INDEX.md` before starting any task. Work one phase at a time from 
 | Evaluation | pytest, JSONL case runner, own checker code, judge |
 | CI | GitHub Actions |
 
-When you add a dependency, pin it in `pyproject.toml` and note why in the commit message. Check current library APIs (LangGraph, FastMCP, langchain-mcp-adapters) against their docs before writing code: these APIs change.
+When you add a dependency, pin it in `pyproject.toml` and note why in the commit message. Check current library APIs (LangGraph, FastMCP, `langchain.mcp`) against their docs before writing code: these APIs change.
 
 ## Repository layout
 
