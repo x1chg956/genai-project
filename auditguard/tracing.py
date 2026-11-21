@@ -24,16 +24,18 @@ from langsmith import Client
 
 from auditguard.config import ConfigError, Settings, require_secret
 
-_TRACERS: dict[tuple[str, str, str], LangChainTracer] = {}
+_TRACERS: dict[tuple[str, str, str, str], LangChainTracer] = {}
 
 
 def _langsmith_tracer(settings: Settings) -> LangChainTracer:
     cfg = settings.tracing
     key = require_secret(cfg.api_key, "LANGSMITH_API_KEY")
-    cache_key = (cfg.endpoint, cfg.project, hashlib.sha256(key).hexdigest())
+    cache_key = (cfg.endpoint, cfg.project, cfg.workspace_id or "", hashlib.sha256(key).hexdigest())
     tracer = _TRACERS.get(cache_key)
     if tracer is None:
-        client = Client(api_url=cfg.endpoint, api_key=key.decode("utf-8"))
+        client = Client(
+            api_url=cfg.endpoint, api_key=key.decode("utf-8"), workspace_id=cfg.workspace_id
+        )
         tracer = LangChainTracer(project_name=cfg.project, client=client)
         _TRACERS[cache_key] = tracer
     return tracer

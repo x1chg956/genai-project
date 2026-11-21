@@ -129,3 +129,11 @@ def test_llm_check_trace_fails_when_backend_never_shows_it(
 
 def test_llm_check_trace_needs_a_working_core_role(settings: Settings) -> None:
     assert llm_check.check_trace(_rows("FAIL"), settings).status == "FAIL"
+
+
+def test_workspace_id_reaches_the_client(make_settings: Callable[..., Settings]) -> None:
+    settings = make_settings(**LANGSMITH, LANGSMITH_WORKSPACE_ID="ws-test-0001")
+    tracer = tracing_callbacks(settings)[0]
+    assert isinstance(tracer, LangChainTracer)
+    assert tracer.client._workspace_id == "ws-test-0001"
+    assert tracer is not tracing_callbacks(make_settings(**LANGSMITH))[0]

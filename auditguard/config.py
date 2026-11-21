@@ -154,6 +154,7 @@ class TracingSettings(_Strict):
     project: str
     endpoint: str
     api_key: OptSecret = None
+    workspace_id: OptStr = None
 
 
 class ShortTermMemory(_Strict):

@@ -45,6 +45,7 @@ tracing:                                       # docs/11 §7: every model call t
   project: ${TRACING_PROJECT:-auditguard}
   endpoint: ${LANGSMITH_ENDPOINT:-https://api.smith.langchain.com}
   api_key: ${LANGSMITH_API_KEY:-}
+  workspace_id: ${LANGSMITH_WORKSPACE_ID:-}    # needed when the key is scoped to an organisation
 
 budgets:
   case: {steps: 12, tool_calls: 20, tokens: 60000, seconds: 180, cost_usd: "0.50"}

@@ -40,7 +40,8 @@ guardrails:
   input: {schema: true, pseudonymise: true, prompt_guard: false, llama_guard: false, scope: true}
   output: {provenance: true, pii: true, neutral_wording: true, tipping_off: true}
 tracing: {backend: "${TRACING_BACKEND:-langsmith}", project: "${TRACING_PROJECT:-auditguard}",
-          endpoint: "${LANGSMITH_ENDPOINT:-https://api.smith.langchain.com}", api_key: "${LANGSMITH_API_KEY:-}"}   # §7
+          endpoint: "${LANGSMITH_ENDPOINT:-https://api.smith.langchain.com}", api_key: "${LANGSMITH_API_KEY:-}",
+          workspace_id: "${LANGSMITH_WORKSPACE_ID:-}"}   # §7
 memory: {short_term: {keep_turns: 12}, long_term: {enabled: false, max_lessons: 2}}
 approval: {ttl_minutes: 120, hmac_key: "${APPROVAL_HMAC_KEY:-}",
            store_path: "${APPROVAL_STORE:-var/approvals.db}"}   # SQLite in Phase 1, Postgres from Phase 2
