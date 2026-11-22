@@ -35,7 +35,7 @@ from auditguard.approval.records import ApprovalStore
 from auditguard.config import ConfigError, Settings, load_settings, resolve_path
 from auditguard.db import conninfo
 from auditguard.graph.deps import GraphDeps
-from auditguard.graph.single_agent import compile_graph, sqlite_checkpointer
+from auditguard.graph.single_agent import checkpointer, compile_graph
 from auditguard.hooks.tools import server_clients
 from auditguard.llm import get_model, get_structured_model
 from auditguard.prompts import load_prompt
@@ -196,7 +196,7 @@ async def run_case(
     traced: bool = True,
 ) -> dict[str, Any]:
     settings = deps.settings
-    async with sqlite_checkpointer(settings) as saver:
+    async with checkpointer(settings) as saver:
         app = compile_graph(deps, saver)
         base = {"configurable": {"thread_id": thread_id}}
         snapshot = await app.aget_state(base)  # type: ignore[arg-type]

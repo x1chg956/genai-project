@@ -25,7 +25,7 @@ from langgraph.types import Command
 from auditguard.cli import live_deps, load_alert
 from auditguard.config import REPO_ROOT, ConfigError, Settings, load_settings
 from auditguard.graph.deps import GraphDeps
-from auditguard.graph.single_agent import compile_graph, sqlite_checkpointer
+from auditguard.graph.single_agent import checkpointer, compile_graph
 from auditguard.tracing import flush_traces, require_live_tracing, trace_config
 from eval.cases import EvalCase, GateScript, load_cases
 from eval.checkers import Check, run_checks
@@ -55,7 +55,7 @@ async def run_one(case: EvalCase, deps: GraphDeps, settings: Settings) -> dict[s
     alert = load_alert(settings, case.alert_id or "")
     started = time.monotonic()
     trace_ids: list[str] = []
-    async with sqlite_checkpointer(settings) as saver:
+    async with checkpointer(settings) as saver:
         app = compile_graph(deps, saver)
         base = {"configurable": {"thread_id": run_id}}
         payload: Any = {

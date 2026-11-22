@@ -162,6 +162,8 @@ class IngestSettings(_Strict):
 
 
 class CheckpointerSettings(_Strict):
+    backend: Literal["postgres", "sqlite"]
+    schema_: str = Field(alias="schema", pattern=r"^[a-z_][a-z0-9_]*$")
     path: str
 
 

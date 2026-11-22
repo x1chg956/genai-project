@@ -96,7 +96,9 @@ approval:
 ingest:                                        # ingest_validate (code node), docs/03 §2
   window_days: 60                              # local days ending on the alert's detection date
 
-checkpointer:                                  # Phase 1: SQLite; Postgres from Phase 2 (thread_id = run_id)
+checkpointer:                                  # thread_id = run_id; Postgres from Phase 2 (docs/02)
+  backend: ${CHECKPOINTER:-postgres}            # postgres (databases.app, own schema) | sqlite (path)
+  schema: checkpoint
   path: ${CHECKPOINT_DB:-var/checkpoints.db}
 
 str_report:                                    # fixed parts of the mock FIU-IND STR payload (docs/08 §1)

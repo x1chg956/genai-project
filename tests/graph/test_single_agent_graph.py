@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,14 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
 from auditguard.approval.canonical import canonical_json
-from auditguard.graph.single_agent import compile_graph, serializer, sqlite_checkpointer
+from auditguard.config import load_settings
+from auditguard.graph.single_agent import (
+    checkpointer,
+    compile_graph,
+    postgres_checkpointer,
+    serializer,
+    sqlite_checkpointer,
+)
 from tests.graph.world import ANALYST, OFFICER, World
 from tests.mcp_servers.helpers import CASE
 from tests.rules.helpers import pack
@@ -161,21 +169,19 @@ def test_edit_after_approval_gives_stale_hash(tmp_path: Path) -> None:
     assert out["errors"][-1].error_code == "STALE_HASH"
 
 
-def test_kill_at_the_decision_gate_and_resume_without_re_ingest(tmp_path: Path) -> None:
-    world = World(tmp_path)
-
+def _kill_and_resume(world: World, saver_for: Any, cfg: Any) -> None:
     async def first_process() -> dict[str, Any]:
-        async with sqlite_checkpointer(world.settings) as saver:
+        async with saver_for() as saver:
             app = compile_graph(world.deps(), saver)
-            return dict(await app.ainvoke(world.start(), CFG))
+            return dict(await app.ainvoke(world.start(), cfg))
 
     async def second_process() -> dict[str, Any]:
-        async with sqlite_checkpointer(world.settings) as saver:
+        async with saver_for() as saver:
             app = compile_graph(world.deps(), saver)
-            snapshot = await app.aget_state(CFG)
+            snapshot = await app.aget_state(cfg)
             assert [t.name for t in snapshot.tasks] == ["decision_gate"]
-            out = await app.ainvoke(Command(resume=FILE), CFG)
-            return dict(await app.ainvoke(Command(resume=APPROVE), CFG)) if out else {}
+            out = await app.ainvoke(Command(resume=FILE), cfg)
+            return dict(await app.ainvoke(Command(resume=APPROVE), cfg)) if out else {}
 
     assert pending(run(first_process()))["kind"] == "decision"
     reads_before = world.repo.reads
@@ -184,6 +190,36 @@ def test_kill_at_the_decision_gate_and_resume_without_re_ingest(tmp_path: Path) 
     assert out["status"] == "SUBMITTED"
     assert world.repo.reads == reads_before, "resume must not re-read the ledger"
     assert world.answer_calls == agent_turns, "resume must not re-run the agent"
+
+
+def test_kill_at_the_decision_gate_and_resume_without_re_ingest(tmp_path: Path) -> None:
+    world = World(tmp_path)
+    _kill_and_resume(world, lambda: sqlite_checkpointer(world.settings), CFG)
+
+
+@pytest.mark.live
+def test_kill_and_resume_with_the_postgres_checkpointer(tmp_path: Path) -> None:
+    """Same as above against the real app database (`pytest -m live`, after db-bootstrap)."""
+    real = load_settings()
+    world = World(tmp_path)
+    cfg = {"configurable": {"thread_id": f"test-{uuid.uuid4().hex}"}}
+    _kill_and_resume(world, lambda: postgres_checkpointer(real), cfg)
+
+
+def test_checkpointer_follows_the_configured_backend(tmp_path: Path) -> None:
+    world = World(tmp_path)
+    lite = world.settings.model_copy(
+        update={
+            "checkpointer": world.settings.checkpointer.model_copy(update={"backend": "sqlite"})
+        }
+    )
+
+    async def kind() -> str:
+        async with checkpointer(lite) as saver:
+            return type(saver).__name__
+
+    assert run(kind()) == "AsyncSqliteSaver"
+    assert load_settings(environ={}).checkpointer.backend == "postgres"  # the Phase 2 default
 
 
 @pytest.mark.parametrize("node", ["decision_gate", "approval_gate"])
