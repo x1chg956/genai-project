@@ -8,7 +8,9 @@
 
 - scenario_family: rapid_pass_through
   description: credits leave within hours, balance near zero
-  parameters: {inflow_count: [8, 25], hold_hours: [2, 40], share_out: [0.85, 0.99],
+  # share_out is the part of each credit forwarded. 0.995-1.00 keeps the balance near zero
+  # (docs/04 R04: "residual near zero"); 0.85-0.99 left INR 9k-50k behind (PROGRESS item).
+  parameters: {inflow_count: [8, 25], hold_hours: [2, 40], share_out: [0.995, 1.00],
                inflow_amount: [5000, 45000], span_days: [3, 10]}
   variants:
     standard:
@@ -18,7 +20,9 @@
       parameters: {hold_hours: [50, 96], span_days: [10, 20]}
     benign_lookalike_payroll:
       expected_disposition: no_action
+      # Pays out (nearly) all it is funded with, so R04 fires and the payroll check must clear
+      # it; 0.97-1.00 left up to INR 27k, so R04 rarely fired and the look-alike tested nothing.
       parameters: {inflow_count: [1, 1], distinct_senders: [1, 1], inflow_amount: [400000, 900000],
-                   outflow_beneficiaries: [12, 30], share_out: [0.97, 1.00]}
+                   outflow_beneficiaries: [12, 30], share_out: [0.999, 1.00]}
 
 # TODO(role1): fan_in entry (Phase 1 needs it: 2 dev cases), then Phase 2 typologies.
