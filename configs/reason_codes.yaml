@@ -1,8 +1,13 @@
 # Fired rule -> STR reason code (docs/08 §1). PLACEHOLDERS: these are not FIU-IND codes.
 # The domain reviewer replaces them with the codes from the FIU-IND reporting format.
 # The analyst confirms the proposed codes at the approval gate; code never invents one.
-version: 0
+version: 1
 codes:
   R01: {code: RC-SYN-01, label: "Cash deposits structured below the reporting threshold"}
+  R02: {code: RC-SYN-02, label: "Integrally connected cash transactions reaching the reporting threshold in a month"}
+  R03: {code: RC-SYN-03, label: "Sudden rise in transaction activity against the customer's own history"}
   R04: {code: RC-SYN-04, label: "Rapid movement of funds through the account"}
+  R05: {code: RC-SYN-05, label: "Large activity in a dormant account after reactivation"}
+  R06: {code: RC-SYN-06, label: "Turnover well above the customer's declared profile"}
   R07: {code: RC-SYN-07, label: "Many unrelated senders into one account"}
+  R08: {code: RC-SYN-08, label: "Funds paid out to many unrelated beneficiaries"}

@@ -81,3 +81,14 @@ def test_detection_date_is_the_local_date(settings: Settings) -> None:
 def test_unmapped_fired_rule_is_refused(settings: Settings) -> None:
     with pytest.raises(ConfigError, match="R99"):
         build(settings, [rule("R99", True)])
+
+
+def test_every_rule_in_the_pack_has_a_reason_code() -> None:
+    """A fired rule without a code stops build_payload after the analyst decides to file."""
+    from auditguard.config import load_settings
+    from mcp_servers.aml_engine.engine.registry import load_rule_pack
+
+    settings = load_settings(environ={})
+    pack = load_rule_pack(REPO_ROOT / settings.rules.pack, settings.rules.version)
+    codes = load_reason_codes(REPO_ROOT / "configs" / "reason_codes.yaml")
+    assert set(pack.rules) <= set(codes)
