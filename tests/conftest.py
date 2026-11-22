@@ -17,6 +17,7 @@ TEST_ENV = {
     "MCP_TOKEN_KEY": "test-mcp-token-key",
     "APPROVAL_HMAC_KEY": "test-approval-hmac-key",
     "TRACING_BACKEND": "none",
+    "CHECKPOINTER": "sqlite",  # unit tests never touch a real database
 }
 
 

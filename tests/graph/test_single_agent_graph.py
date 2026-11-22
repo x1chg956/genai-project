@@ -21,6 +21,7 @@ from auditguard.graph.single_agent import (
     serializer,
     sqlite_checkpointer,
 )
+from tests.conftest import TEST_ENV
 from tests.graph.world import ANALYST, OFFICER, World
 from tests.mcp_servers.helpers import CASE
 from tests.rules.helpers import pack
@@ -219,7 +220,12 @@ def test_checkpointer_follows_the_configured_backend(tmp_path: Path) -> None:
             return type(saver).__name__
 
     assert run(kind()) == "AsyncSqliteSaver"
-    assert load_settings(environ={}).checkpointer.backend == "postgres"  # the Phase 2 default
+    assert (
+        load_settings(
+            environ={k: v for k, v in TEST_ENV.items() if k != "CHECKPOINTER"}
+        ).checkpointer.backend
+        == "postgres"
+    )
 
 
 @pytest.mark.parametrize("node", ["decision_gate", "approval_gate"])
