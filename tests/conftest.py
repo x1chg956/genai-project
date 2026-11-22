@@ -19,6 +19,7 @@ TEST_ENV = {
     "TRACING_BACKEND": "none",
     "CHECKPOINTER": "sqlite",  # unit tests never touch a real database
     "APPROVAL_BACKEND": "sqlite",
+    "AUDIT_BACKEND": "memory",
 }
 
 

@@ -10,7 +10,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from auditguard.graph.single_agent import compile_graph, serializer
 from auditguard.schemas import SingleAgentAnswer
-from tests.graph.world import World, good_answer
+from tests.graph.world import World, good_answer, investigate
 from tests.rules.helpers import pack
 
 CFG = {"configurable": {"thread_id": "t"}}
@@ -78,6 +78,26 @@ def test_tool_budget_stops_the_agent(tmp_path: Path, monkeypatch: Any) -> None:
     out = run_until_decision(world)
     assert out["agent_stats"]["tool_calls"] == 1
     assert out["agent_stats"]["stopped_by"] == "tool_calls"
+
+
+def test_token_budget_stops_the_react_loop(tmp_path: Path) -> None:
+    world = World(tmp_path)
+
+    def costly(messages: Any) -> Any:
+        message = investigate(messages)
+        message.usage_metadata = {"input_tokens": 400, "output_tokens": 100, "total_tokens": 500}
+        return message
+
+    world.script = costly
+    budget = world.settings.budgets.case.model_copy(update={"tokens": 900})
+    budgets = world.settings.budgets.model_copy(update={"case": budget})
+    world.settings = world.settings.model_copy(update={"budgets": budgets})
+    out = run_until_decision(world)
+    stats = out["agent_stats"]
+    assert stats["stopped_by"] == "tokens"
+    assert stats["budget"]["input_tokens"] == "800" and stats["budget"]["steps"] == "2"
+    assert stats["tool_calls"] == 1  # stopped as turn 2 ended, before its tool call ran
+    assert stats["cost_usd"] == "0"  # local model
 
 
 def test_step_limit_keeps_the_conversation_for_stats(tmp_path: Path) -> None:

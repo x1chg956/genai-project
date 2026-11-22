@@ -31,6 +31,7 @@ def make_ingest_validate(deps: GraphDeps) -> Any:
             deps.clients,
             ("transactions",),
             clock=deps.clock,
+            audit=deps.audit,
         )
         txn_ids: list[str] = []
         ref = ""

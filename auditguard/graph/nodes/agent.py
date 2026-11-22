@@ -10,6 +10,7 @@ from langchain_core.runnables import RunnableConfig
 from auditguard.agents.single import CALLER, run_single_agent
 from auditguard.graph.deps import GraphDeps
 from auditguard.graph.state import CaseState
+from auditguard.hooks.budgets import Budget
 from auditguard.hooks.tools import ToolSession
 
 SERVERS = ("transactions", "aml_engine", "regulatory_kb")
@@ -20,15 +21,16 @@ def make_agent_node(deps: GraphDeps) -> Any:
         ledger, quality = state.get("ledger"), state.get("data_quality")
         if ledger is None or quality is None:
             return {"status": "ERROR"}
-        budget = deps.settings.budgets.case
+        budget = Budget.for_role(deps.settings, "specialist")
         session = ToolSession(
             CALLER,
             state["case_id"],
             deps.settings,
             deps.clients,
             SERVERS,
-            max_calls=budget.tool_calls,
             clock=deps.clock,
+            budget=budget,
+            audit=deps.audit,
         )
         async with session:
             outcome = await run_single_agent(

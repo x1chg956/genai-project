@@ -36,6 +36,7 @@ from auditguard.config import ConfigError, Settings, load_settings, resolve_path
 from auditguard.db import conninfo
 from auditguard.graph.deps import GraphDeps
 from auditguard.graph.single_agent import checkpointer, compile_graph
+from auditguard.hooks.post_tool import audit_sink
 from auditguard.hooks.tools import server_clients
 from auditguard.llm import get_model, get_structured_model
 from auditguard.prompts import load_prompt
@@ -327,6 +328,7 @@ def live_deps(settings: Settings) -> GraphDeps:
         answer_model=get_structured_model(prompt.model_role, SingleAgentAnswer, settings),
         prompt=prompt,
         clock=utcnow,
+        audit=audit_sink(settings),
     )
 
 

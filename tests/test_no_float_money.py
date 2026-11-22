@@ -16,6 +16,11 @@ ALLOWED = {
     ("auditguard/config.py", "timeout_s: float"),  # seconds
     ("auditguard/config.py", "temperature: float"),  # model sampling
     ("auditguard/config.py", "score_floor: float"),  # retrieval score
+    ("auditguard/config.py", "base_delay_s: float"),  # retry delay in seconds
+    ("auditguard/hooks/budgets.py", "Callable[[], float]"),  # monotonic clock, seconds
+    ("auditguard/hooks/budgets.py", "def elapsed_s(self) -> float"),  # seconds
+    ("auditguard/hooks/budgets.py", "started: float"),  # monotonic start, seconds
+    ("auditguard/hooks/tools.py", "Callable[[float], Awaitable[None]]"),  # sleep, seconds
     ("auditguard/prompts.py", "temperature: float"),
     ("auditguard/prompts.py", 'float(meta["temperature"])'),
     ("auditguard/approval/canonical.py", "isinstance(value, float)"),  # refuses floats

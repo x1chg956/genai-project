@@ -37,6 +37,7 @@ def make_submit(deps: GraphDeps) -> Any:
             deps.clients,
             ("filing_portal",),
             clock=deps.clock,
+            audit=deps.audit,
         )
         async with session:
             result = await session.call(

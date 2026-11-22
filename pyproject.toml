@@ -22,6 +22,7 @@ dependencies = [
     "pyyaml==6.0.3",
     "rank-bm25==0.2.2",
     "langgraph-checkpoint-postgres==3.2.0",  # Phase 2 task 5: Postgres checkpointer
+    "prometheus-client==0.26.0",  # tool and case metrics (docs/08 §5, docs/11 §6)
 ]
 
 [build-system]

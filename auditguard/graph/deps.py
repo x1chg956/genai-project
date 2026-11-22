@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -13,6 +13,7 @@ from langchain_core.runnables import Runnable
 
 from auditguard.approval.records import ApprovalRepo
 from auditguard.config import Settings
+from auditguard.hooks.post_tool import AuditSink, NullAuditSink
 from auditguard.hooks.tools import ClientFactory
 from auditguard.prompts import Prompt
 
@@ -27,6 +28,7 @@ class GraphDeps:
     answer_model: Runnable[Any, Any]
     prompt: Prompt
     clock: Callable[[], datetime]
+    audit: AuditSink = field(default_factory=NullAuditSink)
 
     @property
     def tz(self) -> ZoneInfo:

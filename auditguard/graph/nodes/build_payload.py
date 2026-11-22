@@ -55,6 +55,7 @@ def make_build_payload(deps: GraphDeps) -> Any:
             deps.clients,
             ("filing_portal",),
             clock=deps.clock,
+            audit=deps.audit,
         )
         async with session:
             preview = await session.call(

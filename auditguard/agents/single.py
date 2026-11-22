@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 from langchain.agents import create_agent
+from langchain_core.callbacks import BaseCallbackHandler, BaseCallbackManager
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import Runnable, RunnableConfig
@@ -36,7 +37,7 @@ from auditguard.checks.evidence import (
     unresolved_ids,
     unsupported_numbers,
 )
-from auditguard.config import CaseBudget
+from auditguard.hooks.budgets import Budget, BudgetCallback, BudgetExceededError
 from auditguard.hooks.tools import ToolRecord, ToolSession, is_error, local_error
 from auditguard.prompts import Prompt
 from auditguard.schemas import (
@@ -65,7 +66,10 @@ class AgentStats:
     input_tokens: int = 0
     output_tokens: int = 0
     stopped_by: str = "model"
-    """model | steps | seconds | tool_calls"""
+    """model | steps | tokens | seconds | cost_usd | tool_calls"""
+    cost_usd: str = "0"
+    budget: dict[str, str] = field(default_factory=dict)
+    """The case budget's counters when the agent stopped (docs/08 §5)."""
     problems: list[str] = field(default_factory=list)
     tool_log: list[str] = field(default_factory=list)
     """One line per model tool call: name and outcome (no argument values)."""
@@ -168,6 +172,21 @@ def _count_usage(messages: list[BaseMessage], stats: AgentStats, tools: set[str]
             stats.invalid_tool_calls += sum(1 for c in message.tool_calls if c["name"] not in tools)
 
 
+def with_callback(config: RunnableConfig | None, handler: BaseCallbackHandler) -> RunnableConfig:
+    """`config` plus one more callback handler. Inside a graph node `callbacks` is a callback
+    manager (it carries tracing); outside it is a list or absent."""
+    base = dict(config or {})
+    current = base.get("callbacks")
+    if isinstance(current, BaseCallbackManager):
+        manager = current.copy()
+        manager.add_handler(handler, inherit=True)
+        base["callbacks"] = manager
+    else:
+        handlers: list[BaseCallbackHandler] = list(current) if isinstance(current, list) else []
+        base["callbacks"] = [*handlers, handler]
+    return cast(RunnableConfig, base)
+
+
 async def run_single_agent(
     *,
     alert: Alert,
@@ -177,14 +196,17 @@ async def run_single_agent(
     chat_model: BaseChatModel,
     answer_model: Runnable[Any, Any],
     prompt: Prompt,
-    budget: CaseBudget,
+    budget: Budget,
     config: RunnableConfig | None = None,
 ) -> AgentOutcome:
     stats = AgentStats()
+    limits = budget.limits
     tools = await session.agent_tools()
     tool_names = {t.name for t in tools}
     agent = create_agent(chat_model, tools, system_prompt=prompt.text)
-    run_config = cast(RunnableConfig, {**(config or {}), "recursion_limit": 2 * budget.steps + 1})
+    run_config = with_callback(config, BudgetCallback(budget))
+    run_config["recursion_limit"] = 2 * limits.steps + 1  # backstop; the budget stops it first
+    answer_config = with_callback(config, BudgetCallback(budget, enforce=False))
     task: Any = {"messages": [HumanMessage(task_message(alert, ledger, quality))]}
     messages: list[BaseMessage] = []
 
@@ -193,7 +215,9 @@ async def run_single_agent(
             messages[:] = list(state["messages"])  # keep the latest, even if a limit stops us
 
     try:
-        await asyncio.wait_for(react(), timeout=budget.seconds)
+        await asyncio.wait_for(react(), timeout=limits.seconds)
+    except BudgetExceededError as exc:
+        stats.stopped_by = exc.limit
     except GraphRecursionError:
         stats.stopped_by = "steps"
     except TimeoutError:
@@ -205,6 +229,8 @@ async def run_single_agent(
         1 for m in messages if isinstance(m, ToolMessage) and m.status == "error"
     )
     stats.tool_calls = sum(1 for r in session.records if r.by_model)
+    stats.cost_usd = str(budget.cost_usd)
+    stats.budget = budget.snapshot()
     stats.tool_log = [
         f"{r.tool}: {r.result['error_code'] if is_error(r.result) else 'ok'}"
         for r in session.records
@@ -221,7 +247,7 @@ async def run_single_agent(
             HumanMessage(answer_message(session.records, problems)),
         ]
         try:
-            candidate = await answer_model.ainvoke(request, config)
+            candidate = await answer_model.ainvoke(request, answer_config)
             if not isinstance(candidate, SingleAgentAnswer):
                 candidate = SingleAgentAnswer.model_validate(candidate)
         except (ValidationError, ValueError) as exc:

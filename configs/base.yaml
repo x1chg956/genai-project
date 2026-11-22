@@ -88,6 +88,11 @@ guardrails:
 
 memory: {short_term: {keep_turns: 12}, long_term: {enabled: false, max_lessons: 2}}
 
+audit:                                         # post_tool audit_log (docs/08 §5)
+  backend: ${AUDIT_BACKEND:-postgres}          # postgres (databases.app, schema below) | memory | none
+  schema: audit
+  retry: {max_attempts: 3, base_delay_s: 0.2}  # read tools only, retryable errors only: 2 retries
+
 approval:
   ttl_minutes: 120
   hmac_key: ${APPROVAL_HMAC_KEY:-}

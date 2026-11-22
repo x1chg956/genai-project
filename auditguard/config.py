@@ -198,6 +198,17 @@ class MemorySettings(_Strict):
     long_term: LongTermMemory
 
 
+class RetrySettings(_Strict):
+    max_attempts: int = Field(ge=1, le=3)
+    base_delay_s: float = Field(ge=0)
+
+
+class AuditSettings(_Strict):
+    backend: Literal["postgres", "memory", "none"]
+    schema_: str = Field(alias="schema", pattern=r"^[a-z_][a-z0-9_]*$")
+    retry: RetrySettings
+
+
 class ApprovalSettings(_Strict):
     ttl_minutes: int
     hmac_key: OptSecret = None
@@ -252,6 +263,7 @@ class Settings(_Strict):
     approval: ApprovalSettings
     ingest: IngestSettings
     checkpointer: CheckpointerSettings
+    audit: AuditSettings
     str_report: StrReportSettings
     filing_portal: FilingPortalSettings
     mcp: McpSettings
