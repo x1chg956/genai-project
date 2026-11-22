@@ -11,6 +11,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from auditguard.graph.single_agent import compile_graph, serializer
 from auditguard.schemas import SingleAgentAnswer
 from tests.graph.world import World, good_answer
+from tests.rules.helpers import pack
 
 CFG = {"configurable": {"thread_id": "t"}}
 
@@ -56,7 +57,7 @@ def test_number_not_from_a_tool_fails_after_one_retry(tmp_path: Path) -> None:
     assert world.answer_calls == 2
     view = out["__interrupt__"][0].value
     assert view["kind"] == "decision"  # the analyst still decides
-    assert {r["rule_id"] for r in view["evidence_pack"]["indicators"]} == {"R01", "R04", "R07"}
+    assert {r["rule_id"] for r in view["evidence_pack"]["indicators"]} == set(pack().rules)
 
 
 def test_answer_needs_a_benign_hypothesis(tmp_path: Path) -> None:

@@ -12,14 +12,19 @@ import yaml
 
 from auditguard.schemas import KycProfile, RuleMeta, RuleResult, Transaction
 from mcp_servers.aml_engine.engine.common import RuleParams
-from mcp_servers.aml_engine.engine.rules import r01, r04, r07
+from mcp_servers.aml_engine.engine.rules import r01, r02, r03, r04, r05, r06, r07, r08
 
 Evaluate = Callable[[Sequence[Transaction], KycProfile | None, Any, ZoneInfo], RuleResult]
 
 IMPLEMENTATIONS: dict[str, tuple[Evaluate, type[RuleParams]]] = {
     r01.RULE_ID: (r01.evaluate, r01.R01Params),
+    r02.RULE_ID: (r02.evaluate, r02.R02Params),
+    r03.RULE_ID: (r03.evaluate, r03.R03Params),
     r04.RULE_ID: (r04.evaluate, r04.R04Params),
+    r05.RULE_ID: (r05.evaluate, r05.R05Params),
+    r06.RULE_ID: (r06.evaluate, r06.R06Params),
     r07.RULE_ID: (r07.evaluate, r07.R07Params),
+    r08.RULE_ID: (r08.evaluate, r08.R08Params),
 }
 
 

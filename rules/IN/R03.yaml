@@ -1,0 +1,22 @@
+rule_id: R03
+name: velocity_spike
+version: 1.0.0
+source_tag: project_heuristic
+effective_from: 2026-01-01
+parameters:
+  multiple: "3"                      # k
+  window_days: 7
+  min_baseline_blocks: 4             # fewer other blocks than this: too little history to judge
+linked_passage_ids: []               # filled after ingestion
+benign_counter_check: seasonal_business
+explanation_template_id: R03_v1
+interpretation: >-
+  "Customer p90" is read as the customer's own history in the slice. The slice is cut into
+  consecutive blocks of W Asia/Kolkata calendar days, starting on the first transaction's local
+  date; empty blocks count as zero. For each block, count = transactions (both directions) and
+  value = their summed amount. Each block is compared with the nearest-rank 90th percentile of
+  every other block's count and value. Fires when some block has count > k x p90(count) or
+  value > k x p90(value) (strict). Needs more than min_baseline_blocks blocks, otherwise it does
+  not fire. A zero baseline means any activity in a block is a spike. score = the larger of
+  count / (k x p90 count) and value / (k x p90 value), 0 when that baseline is 0. Reports the
+  strongest block, earliest on ties.

@@ -1,0 +1,22 @@
+rule_id: R05
+name: dormant_reactivation
+version: 1.0.0
+source_tag: project_heuristic
+effective_from: 2026-01-01
+parameters:
+  dormant_days: 365                  # D
+  reactivation_days: 30
+  median_multiple: "5"               # V = 5 x last-year median
+  lookback_days: 365                 # "last year"
+linked_passage_ids: []               # filled after ingestion
+benign_counter_check: verified_returning_customer
+explanation_template_id: R05_v1
+interpretation: >-
+  Dormant means at least D whole Asia/Kolkata calendar days with no transaction between two
+  consecutive transactions in the slice. The reactivation window is the R local days from the
+  first transaction after the gap (inclusive). value = summed amount of every transaction in it
+  (both directions). V = median_multiple x the median transaction amount over the lookback_days
+  ending on the last active day before the gap (mean of the two middle amounts when even). Fires
+  when value > V (strict). score = value / V. Reports the strongest reactivation, earliest on ties.
+  The slice must reach back past the dormant spell: with the 60-day ingest window this rule cannot
+  fire (open item for role 2).

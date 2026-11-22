@@ -1,0 +1,16 @@
+rule_id: R06
+name: profile_mismatch
+version: 1.0.0
+source_tag: project_heuristic
+effective_from: 2026-01-01
+parameters:
+  multiple: "3"                      # m
+linked_passage_ids: []               # filled after ingestion
+benign_counter_check: updated_kyc_income
+explanation_template_id: R06_v1
+interpretation: >-
+  Monthly turnover is read as the sum of credits in one Asia/Kolkata calendar month (money in;
+  debits are not added). limit = m x declared_monthly_turnover from the customer's KYC profile.
+  Fires when the largest month's credits > limit (strict). score = credits / limit (0 when the
+  limit is 0). Without a KYC profile the rule does not fire and its inputs say kyc_profile
+  missing. Partial months at the slice edges count as they are.

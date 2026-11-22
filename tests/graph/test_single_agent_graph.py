@@ -15,6 +15,7 @@ from auditguard.approval.canonical import canonical_json
 from auditguard.graph.single_agent import compile_graph, serializer, sqlite_checkpointer
 from tests.graph.world import ANALYST, OFFICER, World
 from tests.mcp_servers.helpers import CASE
+from tests.rules.helpers import pack
 
 CFG = {"configurable": {"thread_id": "t1"}}
 FILE = {"decision": "file", "decided_by": ANALYST}
@@ -61,7 +62,7 @@ def test_happy_path_reaches_a_receipt(tmp_path: Path) -> None:
 def test_indicators_come_from_the_tool_not_the_model(tmp_path: Path) -> None:
     out, _ = run(drive(World(tmp_path)))
     result = out["result"]
-    assert {r.rule_id for r in result.indicators} == {"R01", "R04", "R07"}
+    assert {r.rule_id for r in result.indicators} == set(pack().rules)
     assert out["agent_stats"]["tool_calls"] == 3
 
 

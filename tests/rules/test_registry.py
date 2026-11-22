@@ -7,16 +7,18 @@ import pytest
 from mcp_servers.aml_engine.engine.registry import RulePackError, load_rule, load_rule_pack
 from tests.rules.helpers import IST, pack, txn
 
+ALL = ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08"]
 
-def test_pack_loads_phase1_rules() -> None:
+
+def test_pack_loads_rules_01_to_08() -> None:
     loaded = pack()
-    assert sorted(loaded.rules) == ["R01", "R04", "R07"]
+    assert sorted(loaded.rules) == ALL
     assert all(r.meta.interpretation for r in loaded.rules.values())
 
 
 def test_evaluate_all_returns_one_result_per_rule() -> None:
     results = pack().evaluate([txn("1500.00", "credit")], None, IST)
-    assert [r.rule_id for r in results] == ["R01", "R04", "R07"]
+    assert [r.rule_id for r in results] == ALL
 
 
 def test_evaluate_subset_and_unknown() -> None:

@@ -1,0 +1,16 @@
+rule_id: R02
+name: integrally_connected_cash
+version: 1.0.0
+source_tag: project_heuristic        # modelled on PML Rules 3(1)(B); T must be tagged with its source before use
+effective_from: 2026-01-01
+parameters:
+  threshold: "1000000.00"            # T: same placeholder as R01 until the domain reviewer confirms it
+linked_passage_ids: []               # filled after ingestion
+benign_counter_check: verified_cash_business
+explanation_template_id: R02_v1
+interpretation: >-
+  Groups CASH transactions that are each below T (T exclusive) by Asia/Kolkata calendar month
+  and by direction. Deposits and withdrawals are summed separately, never netted. The rule
+  reports the month and direction with the largest sum (earliest month, then deposits, on ties).
+  Fires when that sum >= T (docs/04 says >=; PML Rules say "exceeds", for role 2 to confirm).
+  score = month sum / T. Partial months at the slice edges count as they are.

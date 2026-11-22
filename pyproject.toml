@@ -62,6 +62,7 @@ markers = [
 
 [dependency-groups]
 dev = [
+    "hypothesis==6.170.15",  # property tests for rules (docs/02 Phase 2 task 2)
     "mypy==2.4.1",
     "pytest==9.2.0",
     "ruff==0.17.4",

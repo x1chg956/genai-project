@@ -1,0 +1,17 @@
+rule_id: R08
+name: fan_out
+version: 1.0.0
+source_tag: project_heuristic
+effective_from: 2026-01-01
+parameters:
+  min_beneficiaries: 20              # R
+  window_days: 7                     # W
+linked_passage_ids: []               # filled after ingestion
+benign_counter_check: verified_payroll_employer
+explanation_template_id: R08_v1
+interpretation: >-
+  Mirror of R07 on debits. Counts distinct counterparty_token values on debit transactions within
+  one window of W consecutive Asia/Kolkata calendar days (last local date minus first at most
+  W - 1). Debits without a counterparty (for example cash withdrawals) are not beneficiaries.
+  Reports the window with the most distinct beneficiaries (earliest on ties). Fires when that
+  count >= R. score = distinct beneficiaries / R.
