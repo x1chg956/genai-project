@@ -31,6 +31,7 @@ def make_agent_node(deps: GraphDeps) -> Any:
             clock=deps.clock,
             budget=budget,
             audit=deps.audit,
+            shown=deps.shown,
         )
         async with session:
             outcome = await run_single_agent(
@@ -43,6 +44,7 @@ def make_agent_node(deps: GraphDeps) -> Any:
                 prompt=deps.prompt,
                 budget=budget,
                 config=RunnableConfig(callbacks=config.get("callbacks")),
+                shown=deps.shown,
             )
         update: dict[str, Any] = {
             "result": outcome.result,

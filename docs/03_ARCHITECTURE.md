@@ -175,7 +175,8 @@ flowchart TB
   class agent llm
   class dgate,agate,submit,portal control
   class ingest,build,nofile,ninfo code
-  class oguard,memup later
+  class oguard code
+  class memup later
 ```
 
 `single_agent` returns one `SingleAgentResult { indicators, hypotheses, passages, draft }`. The model's structured output is `SingleAgentAnswer` (hypotheses, passage IDs, draft); code copies the indicators from the last `evaluate_rules` result and the passages from what the tools returned, so the model can neither invent nor alter one. A tool error in `ingest_validate`, `build_payload` or `submit` ends the run with status ERROR and the `ToolError` in `errors`. In Phase 1, `build_payload` connects straight to `approval_gate`; `output_guard` is added in Phase 2 and `memory_update` in Phase 5, without changing the other edges.

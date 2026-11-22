@@ -110,6 +110,7 @@ def make_approval_gate(deps: GraphDeps) -> Any:
                 "diff": payload_diff(state.get("previous_payload"), payload),
                 "options": ACTIONS,
                 "requester_id": state["requester_id"],
+                "guard_findings": state.get("guard_findings", []),
                 "notice": state.get("notice", ""),
             }
         )

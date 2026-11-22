@@ -36,6 +36,7 @@ from auditguard.config import ConfigError, Settings, load_settings, resolve_path
 from auditguard.db import conninfo
 from auditguard.graph.deps import GraphDeps
 from auditguard.graph.single_agent import checkpointer, compile_graph
+from auditguard.guardrails.factory import output_policy, pseudonymiser
 from auditguard.hooks.post_tool import audit_sink
 from auditguard.hooks.tools import server_clients
 from auditguard.llm import get_model, get_structured_model
@@ -142,6 +143,13 @@ def show_approval(view: dict[str, Any], out: Callable[[str], None]) -> None:
     out(f"SHA-256 of the exact payload: {view['sha256']}")
     if view.get("diff"):
         out("Changes from the previous version:\n" + view["diff"])
+    show_findings(view.get("guard_findings", []), out)
+
+
+def show_findings(findings: list[dict[str, Any]], out: Callable[[str], None]) -> None:
+    for f in findings:
+        where = f"sentence {f['sentence'] + 1}" if f["sentence"] >= 0 else "draft"
+        out(f"guardrail {f['severity']}: {f['check']} ({where}): {f['detail']}")
 
 
 # ---- answering the gates -----------------------------------------------------------------
@@ -250,6 +258,9 @@ async def run_case(
             state = (await app.aget_state(base)).values  # type: ignore[arg-type]
             if interrupt_value is None:
                 out(f"\nfinished: {state.get('status')}")
+                if state.get("status") == "RETURNED":
+                    out("returned to the analyst: the draft failed the output guardrails")
+                    show_findings(state.get("guard_findings", []), out)
                 if state.get("receipt") is not None:
                     out(f"receipt: {state['receipt'].ack_id} for {state['receipt'].payload_sha256}")
                 return dict(state)
@@ -329,6 +340,8 @@ def live_deps(settings: Settings) -> GraphDeps:
         prompt=prompt,
         clock=utcnow,
         audit=audit_sink(settings),
+        shown=pseudonymiser(settings).text,
+        output_policy=output_policy(settings),
     )
 
 

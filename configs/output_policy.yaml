@@ -1,0 +1,37 @@
+# Output guardrail word lists (docs/08 §4). Rule-based, case-insensitive, whole words.
+# Review: role 2 with the domain reviewer. A match in a draft sentence is a finding.
+
+# Accusations: a draft states indicators, never guilt ("indicator observed", "requires review").
+accusation_terms:
+  - laundered
+  - laundering money
+  - criminal
+  - fraudster
+  - guilty
+  - stole
+  - stolen funds
+  - illegal
+  - illicit
+  - terrorist
+  - money mule
+  - scammer
+  - confirmed fraud
+  - committed fraud
+
+# Customer-facing or tipping-off text: the STR is never disclosed to the customer
+# (PMLA s.12A confidentiality); there is no outbound customer channel anywhere.
+tipping_off_phrases:
+  - dear customer
+  - dear sir
+  - dear madam
+  - we have reported
+  - you have been reported
+  - your account has been flagged
+  - your account is under investigation
+  - inform the customer
+  - notify the customer
+  - tell the customer
+  - contact the customer
+  - customer has been informed
+  - customer was informed
+  - suspicious transaction report has been filed against you

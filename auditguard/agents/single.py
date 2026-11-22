@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -198,6 +199,7 @@ async def run_single_agent(
     prompt: Prompt,
     budget: Budget,
     config: RunnableConfig | None = None,
+    shown: Callable[[str], str] = str,
 ) -> AgentOutcome:
     stats = AgentStats()
     limits = budget.limits
@@ -207,7 +209,7 @@ async def run_single_agent(
     run_config = with_callback(config, BudgetCallback(budget))
     run_config["recursion_limit"] = 2 * limits.steps + 1  # backstop; the budget stops it first
     answer_config = with_callback(config, BudgetCallback(budget, enforce=False))
-    task: Any = {"messages": [HumanMessage(task_message(alert, ledger, quality))]}
+    task: Any = {"messages": [HumanMessage(shown(task_message(alert, ledger, quality)))]}
     messages: list[BaseMessage] = []
 
     async def react() -> None:
@@ -244,7 +246,7 @@ async def run_single_agent(
             stats.structured_retries += 1
         request = [
             SystemMessage(prompt.text),
-            HumanMessage(answer_message(session.records, problems)),
+            HumanMessage(shown(answer_message(session.records, problems))),
         ]
         try:
             candidate = await answer_model.ainvoke(request, answer_config)

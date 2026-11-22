@@ -13,6 +13,8 @@ from langchain_core.runnables import Runnable
 
 from auditguard.approval.records import ApprovalRepo
 from auditguard.config import Settings
+from auditguard.guardrails.output import OutputPolicy
+from auditguard.guardrails.pseudonymise import identity
 from auditguard.hooks.post_tool import AuditSink, NullAuditSink
 from auditguard.hooks.tools import ClientFactory
 from auditguard.prompts import Prompt
@@ -29,6 +31,9 @@ class GraphDeps:
     prompt: Prompt
     clock: Callable[[], datetime]
     audit: AuditSink = field(default_factory=NullAuditSink)
+    shown: Callable[[str], str] = identity
+    """Applied to every text a model is shown: the pseudonymiser (docs/08 §3)."""
+    output_policy: OutputPolicy | None = None
 
     @property
     def tz(self) -> ZoneInfo:

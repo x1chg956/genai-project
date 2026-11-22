@@ -37,8 +37,10 @@ from auditguard.graph.gates import (
 from auditguard.graph.nodes.agent import make_agent_node
 from auditguard.graph.nodes.build_payload import make_build_payload
 from auditguard.graph.nodes.ingest_validate import make_ingest_validate
+from auditguard.graph.nodes.output_guard import make_output_guard, route_output_guard
 from auditguard.graph.nodes.submit import make_submit
 from auditguard.graph.state import CaseState
+from auditguard.guardrails.output import OutputPolicy
 
 
 def close_no_file(state: CaseState) -> dict[str, Any]:
@@ -64,6 +66,10 @@ def build_graph(deps: GraphDeps) -> StateGraph[CaseState]:
     g.add_node("close_no_file", close_no_file)
     g.add_node("needs_info", needs_info)
     g.add_node("build_payload", make_build_payload(deps))
+    policy = deps.output_policy or OutputPolicy.load(
+        resolve_path(deps.settings.guardrails.output_policy)
+    )
+    g.add_node("output_guard", make_output_guard(deps, policy))
     g.add_node("approval_gate", make_approval_gate(deps))
     g.add_node("submit", make_submit(deps))
 
@@ -80,7 +86,10 @@ def build_graph(deps: GraphDeps) -> StateGraph[CaseState]:
     g.add_edge("close_no_file", END)
     g.add_edge("needs_info", END)
     g.add_conditional_edges(
-        "build_payload", _after("approval_gate"), {"approval_gate": "approval_gate", "end": END}
+        "build_payload", _after("output_guard"), {"output_guard": "output_guard", "end": END}
+    )
+    g.add_conditional_edges(
+        "output_guard", route_output_guard, {"approval_gate": "approval_gate", "end": END}
     )
     g.add_conditional_edges(
         "approval_gate",

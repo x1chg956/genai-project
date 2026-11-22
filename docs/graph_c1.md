@@ -17,6 +17,7 @@ graph TD;
 	close_no_file(close_no_file)
 	needs_info(needs_info)
 	build_payload(build_payload)
+	output_guard(output_guard)
 	approval_gate(approval_gate)
 	submit(submit)
 	__end__([<p>__end__</p>]):::last
@@ -25,12 +26,14 @@ graph TD;
 	approval_gate -.-> build_payload;
 	approval_gate -.-> submit;
 	build_payload -. &nbsp;end&nbsp; .-> __end__;
-	build_payload -.-> approval_gate;
+	build_payload -.-> output_guard;
 	decision_gate -.-> build_payload;
 	decision_gate -.-> close_no_file;
 	decision_gate -.-> needs_info;
 	ingest_validate -. &nbsp;end&nbsp; .-> __end__;
 	ingest_validate -.-> single_agent;
+	output_guard -. &nbsp;end&nbsp; .-> __end__;
+	output_guard -.-> approval_gate;
 	single_agent --> decision_gate;
 	close_no_file --> __end__;
 	needs_info --> __end__;

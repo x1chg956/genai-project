@@ -22,7 +22,7 @@ from auditguard.graph.single_agent import (
     sqlite_checkpointer,
 )
 from tests.conftest import TEST_ENV
-from tests.graph.world import ANALYST, OFFICER, World
+from tests.graph.world import ANALYST, OFFICER, World, good_answer
 from tests.mcp_servers.helpers import CASE
 from tests.rules.helpers import pack
 
@@ -245,4 +245,35 @@ def test_decision_gate_shows_the_recommendation_and_tool_records(tmp_path: Path)
         "evaluate_rules",
         "get_account_summary",
         "search_passages",
+    ]
+
+
+def _answer_with(text: str) -> Any:
+    def answer(records: Any, attempt: int) -> Any:
+        base = good_answer(records)
+        body = base.draft.sections.body
+        changed = body[0].model_copy(update={"text": body[0].text + " " + text})
+        sections = base.draft.sections.model_copy(update={"body": [changed, *body[1:]]})
+        return base.model_copy(
+            update={"draft": base.draft.model_copy(update={"sections": sections})}
+        )
+
+    return answer
+
+
+def test_output_guard_returns_a_tipping_off_draft_to_the_analyst(tmp_path: Path) -> None:
+    world = World(tmp_path, answer=_answer_with("Please notify the customer."))
+    out, seen = run(drive(world, FILE))
+    assert [v["kind"] for v in seen] == ["decision"]  # no approval was ever asked for
+    assert out["status"] == "RETURNED" and out.get("approval") is None
+    assert [f["check"] for f in out["guard_findings"]] == ["tipping_off"]
+
+
+def test_output_guard_warnings_reach_the_approval_gate(tmp_path: Path) -> None:
+    world = World(tmp_path, answer=_answer_with("The holder looks like a money mule."))
+    _, seen = run(drive(world, FILE, APPROVE))
+    approval = seen[-1]
+    assert approval["kind"] == "approval"
+    assert [(f["check"], f["severity"]) for f in approval["guard_findings"]] == [
+        ("neutral_wording", "warning")
     ]

@@ -129,6 +129,8 @@ class ToolSession:
     budget: Budget | None = None
     audit: AuditSink = field(default_factory=NullAuditSink)
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep
+    shown: Callable[[str], str] = str
+    """Applied to every result text a model sees (the pseudonymiser)."""
     records: list[ToolRecord] = field(default_factory=list)
     denied: int = 0
     _open: dict[str, Client[Any]] = field(default_factory=dict)
@@ -311,7 +313,7 @@ class ToolSession:
             before = len(self.records)
             result = await self._guarded(name, args, send, by_model=True)
             ref = self.records[-1].ref if len(self.records) > before else ""
-            return wrap_data(result, ref or None)
+            return self.shown(wrap_data(result, ref or None))
 
         return StructuredTool(
             name=name,

@@ -32,6 +32,7 @@ Status = Literal[
     "SUBMITTED",
     "CLOSED_NO_FILE",
     "REJECTED",
+    "RETURNED",
     "ERROR",
 ]
 
@@ -57,6 +58,8 @@ class CaseState(TypedDict, total=False):
     previous_payload: Payload | None
     approval: ApprovalRecord | None
     receipt: Receipt | None
+    guard_findings: list[dict[str, Any]]
+    """Output guardrail findings on the latest draft (docs/08 §4); shown at the approval gate."""
     notice: str
     """Why a gate asked again (e.g. self-approval refused); shown at the next interrupt."""
     errors: Annotated[list[ToolError], operator.add]

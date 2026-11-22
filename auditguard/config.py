@@ -144,9 +144,17 @@ class OutputGuardrails(_Strict):
     tipping_off: bool
 
 
+class VaultSettings(_Strict):
+    backend: Literal["postgres", "memory"]
+    schema_: str = Field(alias="schema", pattern=r"^[a-z_][a-z0-9_]*$")
+
+
 class Guardrails(_Strict):
     input: InputGuardrails
     output: OutputGuardrails
+    output_policy: str
+    pseudonym_key: OptSecret = None
+    vault: VaultSettings
 
 
 class TracingSettings(_Strict):

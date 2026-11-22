@@ -136,6 +136,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
+    { name = "cryptography" },
     { name = "fastmcp" },
     { name = "httpx" },
     { name = "langchain", extra = ["mcp"] },
@@ -167,6 +168,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiosqlite", specifier = "==0.22.1" },
+    { name = "cryptography", specifier = "==50.0.2" },
     { name = "fastmcp", specifier = "==4.1.6" },
     { name = "httpx", specifier = "==0.28.1" },
     { name = "langchain", extras = ["mcp"], specifier = "==1.4.9" },

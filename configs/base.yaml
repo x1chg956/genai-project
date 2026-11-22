@@ -85,6 +85,9 @@ qdrant: {url: "${QDRANT_URL:-http://localhost:6333}"}
 guardrails:
   input: {schema: true, pseudonymise: true, prompt_guard: false, llama_guard: false, scope: true}
   output: {provenance: true, pii: true, neutral_wording: true, tipping_off: true}
+  output_policy: configs/output_policy.yaml    # accusation terms, tipping-off phrases (role 2)
+  pseudonym_key: ${PSEUDONYM_KEY:-}            # HMAC for tokens + vault encryption; set in .env only
+  vault: {backend: "${PSEUDONYM_VAULT:-postgres}", schema: pseudonym}   # postgres | memory
 
 memory: {short_term: {keep_turns: 12}, long_term: {enabled: false, max_lessons: 2}}
 
