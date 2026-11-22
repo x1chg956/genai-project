@@ -6,7 +6,7 @@ from datetime import date
 
 from pydantic import Field
 
-from auditguard.schemas import Model, Transaction
+from auditguard.schemas import LinkedAccount, Model, PriorReport, Transaction
 from auditguard.schemas.common import Money, UtcDatetime
 from auditguard.schemas.ledger import Channel, Direction
 from mcp_servers.common.quality import LedgerQuality
@@ -65,3 +65,40 @@ class CounterpartyFlows(Model):
     to_date: date
     counterparties_total: int
     flows: list[CounterpartyFlow]
+
+
+class LinkedAccounts(Model):
+    subject_token: str
+    links: list[LinkedAccount]
+    """Only links of the case's own accounts; a linked account with a holder_token is
+    in the case's scope and can be read with the other tools."""
+
+
+class PriorReports(Model):
+    subject_token: str
+    reports: list[PriorReport]
+
+
+class PeerStat(Model):
+    p50: Money
+    p90: Money
+
+
+class PeerCount(Model):
+    p50: int
+    p90: int
+
+
+class PeerBaseline(Model):
+    """Per-account totals over the window across a segment's peer accounts. Aggregates only:
+    no account or customer token of a peer is returned."""
+
+    segment: str
+    window_days: int
+    from_date: date
+    to_date: date
+    peer_accounts: int
+    credit_total: PeerStat
+    debit_total: PeerStat
+    cash_total: PeerStat
+    txn_count: PeerCount

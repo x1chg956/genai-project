@@ -40,6 +40,10 @@ def test_allow_list_limits_what_an_agent_is_offered(tmp_path: Path) -> None:
         "get_transactions",
         "get_account_summary",
         "get_counterparty_flows",
+        "get_kyc_profile",
+        "get_linked_accounts",
+        "get_peer_baseline",
+        "get_prior_reports",
         "search_passages",
         "get_passage",
     }

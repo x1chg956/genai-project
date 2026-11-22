@@ -71,9 +71,20 @@ class DefectSpec(_Strict):
     reversal_delay_minutes: tuple[int, int]
 
 
+class ContextSpec(_Strict):
+    phone_pair_percent: int = Field(ge=0, le=100)
+    device_pair_percent: int = Field(ge=0, le=100)
+    introducer_percent: int = Field(ge=0, le=100)
+    external_link_percent: int = Field(ge=0, le=100)
+    prior_ctr_percent: int = Field(ge=0, le=100)
+    prior_str_per_mille: int = Field(ge=0, le=1000)
+    ctr_amount: tuple[int, int]
+
+
 class BackgroundSpec(_Strict):
     version: int
     defects: DefectSpec
+    context: ContextSpec
     segments: dict[Segment, int]
     tickets: dict[str, list[Bucket]]
     monthly: dict[Segment, dict[str, int]]

@@ -20,7 +20,7 @@ Four FastMCP 4 servers under `mcp_servers/`. Each is its own package with `serve
   - an argument failing its schema → `INVALID_INPUT` (field names only, never values);
   - an unexpected exception → `INTERNAL` (details only in the server log, with the `correlation_id`).
 - Tokens are `agt1.<claims>.<HMAC-SHA256>`, signed with `MCP_TOKEN_KEY` (`auditguard/security/tokens.py`). Claims: agent, case_id, expiry. Code nodes and hooks issue them; agents never see them. The hooks layer (`auditguard/hooks/tools.py`, `ToolSession`) adds `agent_token` and `case_id` to each call and hides both from the model's tool schema; it also offers an agent only its allow-listed tools, counts calls against `budgets.case.tool_calls`, wraps every result shown to a model in `<data source="tool">`, and records every result for the code checks.
-- Case scope (Phase 1): `case_id` is the alert ID, and a case may read only the alerted account. Other accounts → `OUT_OF_SCOPE`. Linked accounts join the scope in Phase 2.
+- Case scope (Phase 2): `case_id` is the alert ID. A case may read the alerted account, the bank's accounts linked to it in `ledger.link` (one hop, either direction) and the customers holding them. Anything else, including a linked account at another bank, → `OUT_OF_SCOPE`. A `subject_token` is a customer token or one of the case's account tokens (its holder).
 - Money is a decimal string in JSON. Timestamps are UTC ISO 8601.
 - Large results are paged or aggregated. No tool returns more than 200 rows.
 - Tool descriptions are static strings; their SHA-256 is pinned in `configs/base.yaml` (`mcp.description_hashes`) from Phase 6.
@@ -45,6 +45,11 @@ DB role: `auditguard_ro` (`databases.ledger_ro`).
 Windows: `from_date`/`to_date` are Asia/Kolkata local dates, inclusive. `window_days` counts back from the alert's detection date, inclusive. p50 and p90 use the nearest-rank method, so they are always an observed amount.
 
 `get_transactions` returns `ledger_ref = ledger:v1:<account>:<from>:<to>:<digest>`. It names the whole range, not just the page. The digest covers the rows, so `evaluate_rules` refuses a ref whose ledger changed after it was issued.
+
+Phase 2 tools (`get_kyc_profile`, `get_linked_accounts`, `get_prior_reports`, `get_peer_baseline`):
+- `get_linked_accounts` returns the links of the case's own accounts, with `holder_token` set when the linked account is one of this bank's (and therefore in scope).
+- `get_prior_reports` returns `ledger.prior_report` rows for the subject, oldest first. They are records, not memory (docs/09).
+- `get_peer_baseline` returns p50 and p90 (nearest rank) of per-account credit, debit and cash totals and transaction counts over the window. Peers are the segment's accounts open for the whole window, minus the case's accounts, on cleaned rows. It returns aggregates only, never a peer's token, and refuses a group smaller than `mcp.peer_min_accounts` (10, a project heuristic).
 
 `LedgerPage.quality` (`LedgerQuality`) also covers the whole range: days expected and reconciled against `daily_balance`, unreconciled days, quarantined duplicates, netted reversal pairs, unmatched reversals and the rule-input row count (docs/04 §1a). The page lists every row on file. `get_account_summary` and `get_counterparty_flows` use the cleaned rows, as `evaluate_rules` does.
 

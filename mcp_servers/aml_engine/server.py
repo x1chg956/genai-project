@@ -54,7 +54,7 @@ def build_server(repo: LedgerRepo, pack: RulePack, guard: ToolGuard, *, tz: Zone
         alert = repo.alert(case_id)
         if alert is None:
             return tool_error("NOT_FOUND", f"no case {case_id}", tool)
-        if ref.account_token not in case_accounts(alert):
+        if ref.account_token not in case_accounts(repo, alert):
             return tool_error(
                 "OUT_OF_SCOPE", "ledger_ref account is not in this case's scope", tool
             )

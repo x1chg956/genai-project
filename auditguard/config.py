@@ -248,6 +248,7 @@ class McpSettings(_Strict):
     token_key: OptSecret = None
     token_ttl_minutes: int
     max_rows: int = Field(le=200)
+    peer_min_accounts: int = Field(ge=2)
     allow_list: dict[str, list[str]]
     description_hashes: dict[str, str] = Field(default_factory=dict)
 

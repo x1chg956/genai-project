@@ -66,9 +66,14 @@ def ledger_rows(ds: Dataset) -> dict[str, list[tuple[Any, ...]]]:
             for r in ds.transactions
         ],
         "daily_balance": [(b.account_token, b.local_date, b.closing_balance) for b in ds.balances],
+        "link": [(x.account_token, x.linked_account_token, x.link_type) for x in ds.links],
         "alert": [
             (a.alert_id, a.account_ref, a.scenario_code, a.detected_at, a.profile)
             for a in ds.alerts
+        ],
+        "prior_report": [
+            (r.report_id, r.subject_token, r.filed_at, r.type, r.amount, r.ack_id)
+            for r in ds.prior_reports
         ],
     }
 

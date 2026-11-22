@@ -25,6 +25,7 @@ from auditguard.schemas import Alert, Transaction
 from auditguard.schemas.ledger import Channel, Direction
 from data.generator.background import Pools, background_v1, load_background, plan_customer
 from data.generator.balances import LOOKBACK_DAYS, daily_balances
+from data.generator.context import plant_context
 from data.generator.defects import FeedDifference, plant_defects
 from data.generator.model import (
     AccountRow,
@@ -453,6 +454,9 @@ def generate(
             a.account_token for i, a in enumerate(ds.accounts) if i not in plant_at
         ]
         diff = plant_defects(ds, background_accounts, bg_spec.defects, rng, ids.next)
+        ds.links, ds.prior_reports = plant_context(
+            ds.accounts, background_accounts, bg_spec.context, seed, start, ids.next
+        )
     else:
         diff = FeedDifference()
     ds.transactions.sort(key=lambda r: (r.txn.ts, r.txn.txn_id))

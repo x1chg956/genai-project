@@ -4,15 +4,25 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Sequence
+from dataclasses import dataclass
 from decimal import Decimal
+from typing import TypeVar
 
 from auditguard.schemas import Transaction
-from mcp_servers.transactions.models import ChannelStats, CounterpartyFlow
+from mcp_servers.transactions.models import (
+    ChannelStats,
+    CounterpartyFlow,
+    PeerCount,
+    PeerStat,
+)
 
 ZERO = Decimal("0.00")
 
 
-def nearest_rank(sorted_values: Sequence[Decimal], pct: int) -> Decimal:
+N = TypeVar("N", int, Decimal)
+
+
+def nearest_rank(sorted_values: Sequence[N], pct: int) -> N:
     """Nearest-rank percentile: the smallest value with at least pct% of values at or below it.
 
     Always an observed amount, so it is exact to the paisa.
@@ -69,3 +79,30 @@ def counterparty_flows(txns: Sequence[Transaction]) -> list[CounterpartyFlow]:
         )
     flows.sort(key=lambda f: (-(f.credit_total + f.debit_total), f.counterparty_token))
     return flows
+
+
+@dataclass(frozen=True)
+class AccountTotals:
+    credit: Decimal
+    debit: Decimal
+    cash: Decimal  # CASH channel, both directions
+    count: int
+
+
+def account_totals(txns: Sequence[Transaction]) -> AccountTotals:
+    return AccountTotals(
+        credit=sum((t.amount for t in txns if t.direction == "credit"), ZERO),
+        debit=sum((t.amount for t in txns if t.direction == "debit"), ZERO),
+        cash=sum((t.amount for t in txns if t.channel == "CASH"), ZERO),
+        count=len(txns),
+    )
+
+
+def peer_stat(values: Sequence[Decimal]) -> PeerStat:
+    ordered = sorted(values)
+    return PeerStat(p50=nearest_rank(ordered, 50), p90=nearest_rank(ordered, 90))
+
+
+def peer_count(values: Sequence[int]) -> PeerCount:
+    ordered = sorted(values)
+    return PeerCount(p50=nearest_rank(ordered, 50), p90=nearest_rank(ordered, 90))

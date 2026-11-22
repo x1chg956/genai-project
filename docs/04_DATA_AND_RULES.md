@@ -123,6 +123,7 @@ The generator writes balances from what was booked (dropped feed rows included, 
 - Background: ≥300 customers for `full` (10 for `tiny`), realistic channel mix (UPI, NEFT, IMPS, cash, card), salary days, festival spikes.
   Built: `full` = 320 customers over 182 days ending 2026-03-31, each variant planted 4 times in random slots. Background v1 (`data/generator/background.py`) is calibrated in `data/generator/background_IN.yaml`, which cites its sources (RBI Payment System Indicators and Bulletin, Worldline, IIMB) next to each ticket size. `tiny` keeps the simple v0 background and is unchanged.
 - Injection: each typology at a controllable intensity; benign look-alikes; evasive variants (amounts jittered just outside a boundary, spread over a longer window); data defects (missing days, duplicates, reversals).
+- Links and prior reports (`full`): background customers only, from `background_IN.yaml` `context` (project heuristics, role 1 reviews): about 12% share a phone and 4% a device with another customer, 3% have an introducer, 2% are linked to an account at another bank (`ACCT-EXT-…`); 2% had a CTR (INR 10–25 lakh) and 0.5% an STR in the two years before the data. They come from a separate seeded stream, so transactions are unchanged. Planted accounts have none: repeat-subject and linked-account scenarios are role 1's typology entries.
 - Names from `names_fictional.txt`, checked against a deny-list. IDs look like `ACCT-SYN-000123`, `CUST-SYN-000045`, `TXN-SYN-0000001`.
 - Output: `alert` rows for each planted scenario and for noise alerts.
 

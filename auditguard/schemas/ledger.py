@@ -44,6 +44,30 @@ class KycProfile(Model):
     onboarded_at: UtcDatetime
 
 
+LinkType = Literal["holder", "introducer", "phone", "device"]
+
+
+class LinkedAccount(Model):
+    """A ledger link (docs/04 §1) seen from one account; links are read in both directions."""
+
+    account_token: str
+    linked_account_token: str
+    link_type: LinkType
+    holder_token: str | None = None
+    """Customer holding the linked account, when it is an account of this bank."""
+
+
+class PriorReport(Model):
+    """A report filed earlier on a subject (records, not memory: docs/09 §1)."""
+
+    report_id: str
+    subject_token: str
+    filed_at: UtcDatetime
+    type: Literal["STR", "CTR"]
+    amount: Money | None = None
+    ack_id: str | None = None
+
+
 class LedgerSlice(Model):
     """Reference to a validated slice of the ledger: a storage key, never the rows."""
 

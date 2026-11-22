@@ -283,3 +283,32 @@ def test_planted_and_tiny_accounts_reconcile_every_day() -> None:
     quality = _assess_all(tiny)
     assert all(not q.unreconciled_days and not q.quarantined for q in quality.values())
     assert all(q.days_expected > 0 for q in quality.values())
+
+
+def test_links_and_prior_reports_are_background_only_and_well_formed(full: Dataset) -> None:
+    alerted = {a.account_ref for a in full.alerts}
+    accounts = {a.account_token for a in full.accounts}
+    holders = {a.customer_token for a in full.accounts if a.account_token not in alerted}
+    assert {x.link_type for x in full.links} == {"phone", "device", "introducer"}
+    for x in full.links:
+        assert x.account_token in accounts and x.account_token not in alerted
+        assert x.linked_account_token not in alerted
+        assert x.linked_account_token in accounts or x.linked_account_token.startswith("ACCT-EXT")
+    assert full.prior_reports and {r.type for r in full.prior_reports} == {"CTR", "STR"}
+    for r in full.prior_reports:
+        assert r.subject_token in holders and r.filed_at.date() < date(2025, 10, 1)
+        if r.type == "CTR":
+            assert r.amount is not None and r.amount >= Decimal("1000000.00")
+
+
+def test_context_uses_its_own_stream_so_transactions_do_not_change(full: Dataset) -> None:
+    import data.generator.generate as g
+
+    original = g.plant_context
+    try:
+        g.plant_context = lambda *a, **k: ([], [])  # type: ignore[assignment]
+        without = generate(SPEC, seed=7, profile="full", spec_hash="h")
+    finally:
+        g.plant_context = original
+    assert [r.txn for r in without.transactions] == [r.txn for r in full.transactions]
+    assert without.links == [] and full.links

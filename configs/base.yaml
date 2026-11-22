@@ -135,6 +135,7 @@ mcp:
   token_key: ${MCP_TOKEN_KEY:-}                # HMAC key for agent tokens; set in .env only
   token_ttl_minutes: 60
   max_rows: 200                                # no tool returns more rows than this
+  peer_min_accounts: 10                        # get_peer_baseline refuses smaller peer groups (project heuristic)
   allow_list:                                  # caller -> tools (docs/05); checked by every server
     ingest_validate: [get_transactions, get_kyc_profile, get_linked_accounts]
     single_agent: [get_transactions, get_account_summary, get_counterparty_flows, get_kyc_profile,

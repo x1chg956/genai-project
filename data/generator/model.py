@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 
-from auditguard.schemas import Alert, Transaction
+from auditguard.schemas import Alert, LinkedAccount, PriorReport, Transaction
 
 
 @dataclass(frozen=True)
@@ -93,3 +93,5 @@ class Dataset:
     scenario_params: list[ScenarioParams] = field(default_factory=list)
     defects: list[DataDefect] = field(default_factory=list)
     balances: list[BalanceRow] = field(default_factory=list)
+    links: list[LinkedAccount] = field(default_factory=list)
+    prior_reports: list[PriorReport] = field(default_factory=list)

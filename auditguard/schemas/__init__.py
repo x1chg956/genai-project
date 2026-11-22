@@ -8,6 +8,8 @@ from auditguard.schemas.ledger import (
     DataQualityReport,
     KycProfile,
     LedgerSlice,
+    LinkedAccount,
+    PriorReport,
     Transaction,
 )
 from auditguard.schemas.report import (
@@ -33,10 +35,12 @@ __all__ = [
     "Hypothesis",
     "KycProfile",
     "LedgerSlice",
+    "LinkedAccount",
     "Model",
     "Money",
     "Passage",
     "Payload",
+    "PriorReport",
     "Receipt",
     "Recommendation",
     "RuleMeta",

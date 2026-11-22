@@ -7,7 +7,11 @@ Every MCP tool, read from the servers themselves. Kind: R read, C compute, W wri
 |---|---|---|---|
 | transactions | `get_account_summary` | R | 7 |
 | transactions | `get_counterparty_flows` | R | 5 |
-| transactions | `get_transactions` | R | 11 |
+| transactions | `get_kyc_profile` | R | 6 |
+| transactions | `get_linked_accounts` | R | 2 |
+| transactions | `get_peer_baseline` | R | 5 |
+| transactions | `get_prior_reports` | R | 2 |
+| transactions | `get_transactions` | R | 12 |
 | aml_engine | `evaluate_rules` | C | 10 |
 | aml_engine | `get_rule_metadata` | C | 4 |
 | regulatory_kb | `get_passage` | R | 4 |
@@ -404,6 +408,667 @@ and netted reversal pairs are left out, as in evaluate_rules.
 - `tests/mcp_servers/transactions/test_server.py::test_get_counterparty_flows_invalid_input[args2]`
 - `tests/mcp_servers/transactions/test_server.py::test_get_counterparty_flows_window_boundary`
 
+## `get_kyc_profile` (transactions, R)
+
+R. The KYC profile of a customer in the case's scope: segment, risk band,
+declared monthly turnover and onboarding time. `subject_token` is a customer token
+or one of the case's account tokens (its holder is returned).
+
+**Input**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "agent_token": {
+      "type": "string"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "subject_token": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "agent_token",
+    "case_id",
+    "subject_token"
+  ],
+  "type": "object"
+}
+```
+
+**Output**
+
+```json
+{
+  "properties": {
+    "result": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "declared_monthly_turnover": {
+              "decimal_places": 2,
+              "max_digits": 18,
+              "type": "string"
+            },
+            "kyc_risk_band": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "type": "string"
+            },
+            "onboarded_at": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "segment": {
+              "type": "string"
+            },
+            "subject_token": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "subject_token",
+            "segment",
+            "kyc_risk_band",
+            "declared_monthly_turnover",
+            "onboarded_at"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Structured error returned (never raised) by MCP tools and code nodes.",
+          "properties": {
+            "correlation_id": {
+              "type": "string"
+            },
+            "error_code": {
+              "enum": [
+                "INVALID_INPUT",
+                "NOT_FOUND",
+                "FORBIDDEN",
+                "OUT_OF_SCOPE",
+                "STALE_HASH",
+                "APPROVAL_INVALID",
+                "TIMEOUT",
+                "BUDGET_EXCEEDED",
+                "INTERNAL"
+              ],
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "tool_name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error_code",
+            "message",
+            "retryable",
+            "tool_name",
+            "correlation_id"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "required": [
+    "result"
+  ],
+  "type": "object",
+  "x-fastmcp-wrap-result": true
+}
+```
+
+**Tests**
+
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_kyc_profile_happy`
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_kyc_profile_invalid_input`
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_kyc_profile_out_of_scope[ACCT-EXT-000001]`
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_kyc_profile_out_of_scope[ACCT-SYN-000002]`
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_kyc_profile_out_of_scope[CUST-SYN-000002]`
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_kyc_profile_out_of_scope[CUST-SYN-100001]`
+
+## `get_linked_accounts` (transactions, R)
+
+R. Accounts linked to the case's accounts by holder, introducer, phone or device.
+`subject_token` is a customer or account token in the case's scope. A linked
+account of this bank (holder_token set) is in the case's scope.
+
+**Input**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "agent_token": {
+      "type": "string"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "subject_token": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "agent_token",
+    "case_id",
+    "subject_token"
+  ],
+  "type": "object"
+}
+```
+
+**Output**
+
+```json
+{
+  "properties": {
+    "result": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "links": {
+              "items": {
+                "additionalProperties": false,
+                "description": "A ledger link (docs/04 \u00a71) seen from one account; links are read in both directions.",
+                "properties": {
+                  "account_token": {
+                    "type": "string"
+                  },
+                  "holder_token": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "link_type": {
+                    "enum": [
+                      "holder",
+                      "introducer",
+                      "phone",
+                      "device"
+                    ],
+                    "type": "string"
+                  },
+                  "linked_account_token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "account_token",
+                  "linked_account_token",
+                  "link_type"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "subject_token": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "subject_token",
+            "links"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Structured error returned (never raised) by MCP tools and code nodes.",
+          "properties": {
+            "correlation_id": {
+              "type": "string"
+            },
+            "error_code": {
+              "enum": [
+                "INVALID_INPUT",
+                "NOT_FOUND",
+                "FORBIDDEN",
+                "OUT_OF_SCOPE",
+                "STALE_HASH",
+                "APPROVAL_INVALID",
+                "TIMEOUT",
+                "BUDGET_EXCEEDED",
+                "INTERNAL"
+              ],
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "tool_name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error_code",
+            "message",
+            "retryable",
+            "tool_name",
+            "correlation_id"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "required": [
+    "result"
+  ],
+  "type": "object",
+  "x-fastmcp-wrap-result": true
+}
+```
+
+**Tests**
+
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_linked_accounts_happy_both_directions`
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_linked_accounts_invalid_input_and_scope`
+
+## `get_peer_baseline` (transactions, R)
+
+R. What is usual for a customer segment: p50 and p90 across peer accounts of each
+account's credit, debit and cash totals and transaction count over the last
+window_days local days up to the alert date. Peers are the segment's accounts
+open for the whole window, excluding this case's accounts; duplicates and netted
+reversals are left out. Aggregates only, never a peer's identity.
+
+**Input**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "agent_token": {
+      "type": "string"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "segment": {
+      "type": "string"
+    },
+    "window_days": {
+      "maximum": 366,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "agent_token",
+    "case_id",
+    "segment",
+    "window_days"
+  ],
+  "type": "object"
+}
+```
+
+**Output**
+
+```json
+{
+  "properties": {
+    "result": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "description": "Per-account totals over the window across a segment's peer accounts. Aggregates only:\nno account or customer token of a peer is returned.",
+          "properties": {
+            "cash_total": {
+              "additionalProperties": false,
+              "properties": {
+                "p50": {
+                  "decimal_places": 2,
+                  "max_digits": 18,
+                  "type": "string"
+                },
+                "p90": {
+                  "decimal_places": 2,
+                  "max_digits": 18,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "p50",
+                "p90"
+              ],
+              "type": "object"
+            },
+            "credit_total": {
+              "additionalProperties": false,
+              "properties": {
+                "p50": {
+                  "decimal_places": 2,
+                  "max_digits": 18,
+                  "type": "string"
+                },
+                "p90": {
+                  "decimal_places": 2,
+                  "max_digits": 18,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "p50",
+                "p90"
+              ],
+              "type": "object"
+            },
+            "debit_total": {
+              "additionalProperties": false,
+              "properties": {
+                "p50": {
+                  "decimal_places": 2,
+                  "max_digits": 18,
+                  "type": "string"
+                },
+                "p90": {
+                  "decimal_places": 2,
+                  "max_digits": 18,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "p50",
+                "p90"
+              ],
+              "type": "object"
+            },
+            "from_date": {
+              "format": "date",
+              "type": "string"
+            },
+            "peer_accounts": {
+              "type": "integer"
+            },
+            "segment": {
+              "type": "string"
+            },
+            "to_date": {
+              "format": "date",
+              "type": "string"
+            },
+            "txn_count": {
+              "additionalProperties": false,
+              "properties": {
+                "p50": {
+                  "type": "integer"
+                },
+                "p90": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "p50",
+                "p90"
+              ],
+              "type": "object"
+            },
+            "window_days": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "segment",
+            "window_days",
+            "from_date",
+            "to_date",
+            "peer_accounts",
+            "credit_total",
+            "debit_total",
+            "cash_total",
+            "txn_count"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Structured error returned (never raised) by MCP tools and code nodes.",
+          "properties": {
+            "correlation_id": {
+              "type": "string"
+            },
+            "error_code": {
+              "enum": [
+                "INVALID_INPUT",
+                "NOT_FOUND",
+                "FORBIDDEN",
+                "OUT_OF_SCOPE",
+                "STALE_HASH",
+                "APPROVAL_INVALID",
+                "TIMEOUT",
+                "BUDGET_EXCEEDED",
+                "INTERNAL"
+              ],
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "tool_name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error_code",
+            "message",
+            "retryable",
+            "tool_name",
+            "correlation_id"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "required": [
+    "result"
+  ],
+  "type": "object",
+  "x-fastmcp-wrap-result": true
+}
+```
+
+**Tests**
+
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_peer_baseline_happy_exact_percentiles`
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_peer_baseline_invalid_input[0]`
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_peer_baseline_invalid_input[367]`
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_peer_baseline_invalid_input[x]`
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_peer_baseline_refuses_a_small_group`
+
+## `get_prior_reports` (transactions, R)
+
+R. Reports (STR, CTR) filed earlier on a customer in the case's scope, oldest
+first. `subject_token` is a customer or account token in the case's scope.
+
+**Input**
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "agent_token": {
+      "type": "string"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "subject_token": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "agent_token",
+    "case_id",
+    "subject_token"
+  ],
+  "type": "object"
+}
+```
+
+**Output**
+
+```json
+{
+  "properties": {
+    "result": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "reports": {
+              "items": {
+                "additionalProperties": false,
+                "description": "A report filed earlier on a subject (records, not memory: docs/09 \u00a71).",
+                "properties": {
+                  "ack_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "amount": {
+                    "anyOf": [
+                      {
+                        "decimal_places": 2,
+                        "max_digits": 18,
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
+                  "filed_at": {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  "report_id": {
+                    "type": "string"
+                  },
+                  "subject_token": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "enum": [
+                      "STR",
+                      "CTR"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "report_id",
+                  "subject_token",
+                  "filed_at",
+                  "type"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "subject_token": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "subject_token",
+            "reports"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Structured error returned (never raised) by MCP tools and code nodes.",
+          "properties": {
+            "correlation_id": {
+              "type": "string"
+            },
+            "error_code": {
+              "enum": [
+                "INVALID_INPUT",
+                "NOT_FOUND",
+                "FORBIDDEN",
+                "OUT_OF_SCOPE",
+                "STALE_HASH",
+                "APPROVAL_INVALID",
+                "TIMEOUT",
+                "BUDGET_EXCEEDED",
+                "INTERNAL"
+              ],
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "tool_name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error_code",
+            "message",
+            "retryable",
+            "tool_name",
+            "correlation_id"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "required": [
+    "result"
+  ],
+  "type": "object",
+  "x-fastmcp-wrap-result": true
+}
+```
+
+**Tests**
+
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_prior_reports_happy_oldest_first_and_own_subject_only`
+- `tests/mcp_servers/transactions/test_context_tools.py::test_get_prior_reports_invalid_input_and_scope`
+
 ## `get_transactions` (transactions, R)
 
 R. One page (at most 200 rows) of an account's transactions between two
@@ -732,6 +1397,7 @@ listed, including quarantined and netted ones.
 
 **Tests**
 
+- `tests/mcp_servers/transactions/test_context_tools.py::test_linked_account_joins_the_scope_but_external_and_unlinked_do_not`
 - `tests/mcp_servers/transactions/test_server.py::test_get_transactions_happy`
 - `tests/mcp_servers/transactions/test_server.py::test_get_transactions_invalid_input[args0]`
 - `tests/mcp_servers/transactions/test_server.py::test_get_transactions_invalid_input[args1]`
