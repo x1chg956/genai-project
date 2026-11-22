@@ -1,6 +1,6 @@
 # AuditGuard developer commands (CLAUDE.md "Commands"). Keep every target working.
 .DEFAULT_GOAL := help
-.PHONY: help install test lint format llm-check seed ingest run-case mini-eval eval up down ps db-bootstrap docs-evidence
+.PHONY: help install test lint format llm-check seed ingest retrieval-eval run-case mini-eval eval up down ps db-bootstrap docs-evidence
 
 # An unrelated activated virtualenv must not leak into uv's project environment.
 unexport VIRTUAL_ENV
@@ -45,8 +45,12 @@ PROFILE ?= tiny
 seed:  ## generate synthetic ledger into Postgres, e.g. make seed SEED=42 PROFILE=tiny
 	$(UV) python -m data.generator --seed $(SEED) --profile $(PROFILE) $(ARGS)
 
-ingest:  ## fetch + index corpus (Phase 1)
-	@echo "make ingest: not implemented until Phase 1 (scripts/ingest.py, docs/07)"; exit 1
+ingest:  ## fetch + index the corpus in corpus/manifest.yaml (needs the reviewer's signature; FETCH_FLAGS=--allow-unsigned for dev)
+	uv run python -m scripts.fetch_corpus $(FETCH_FLAGS)
+	uv run python -m scripts.ingest
+
+retrieval-eval:  ## E5 staircase: Recall@5, MRR, in-force-first per arm, on eval/retrieval/queries.jsonl (role 1)
+	uv run python -m eval.retrieval $(if $(QUERIES),--queries $(QUERIES),)
 
 run-case:  ## run one case, e.g. make run-case CASE=ALR-SYN-0001 [THREAD=RUN-...] to resume
 	@test -n "$(CASE)" || { echo "usage: make run-case CASE=ALR-SYN-0001 [THREAD=...]"; exit 2; }

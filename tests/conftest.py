@@ -9,6 +9,11 @@ import pytest
 from auditguard.config import Settings, load_settings
 
 TEST_ENV = {
+    # unit tests run the BM25 path only; tests/mcp_servers/regulatory_kb/test_hybrid.py covers
+    # vectors, fusion, rerank and decomposition with deterministic fakes
+    "RETRIEVAL_VECTOR": "false",
+    "RETRIEVAL_RERANK": "false",
+    "RETRIEVAL_DECOMPOSE": "false",
     "LLM_API_KEY": "test-local-key",
     "OPENROUTER_API_KEY": "test-openrouter-key",
     "POSTGRES_PASSWORD": "test-app-pw",

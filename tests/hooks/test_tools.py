@@ -46,8 +46,14 @@ def test_allow_list_limits_what_an_agent_is_offered(tmp_path: Path) -> None:
         "get_prior_reports",
         "search_passages",
         "get_passage",
+        "search_typologies",
+        "list_document_versions",
     }
-    assert asyncio.run(go("researcher")) == ["get_passage", "search_passages"]
+    assert asyncio.run(go("researcher")) == [
+        "get_passage",
+        "list_document_versions",
+        "search_passages",
+    ]
     assert asyncio.run(go("submit")) == ["get_receipt", "submit_approved_payload"]
 
 

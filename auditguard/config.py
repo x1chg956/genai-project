@@ -97,7 +97,12 @@ class RetrievalSettings(_Strict):
     k_vector: int
     k_final: int
     rrf_k: int
+    rerank_candidates: int = Field(ge=1, le=100)
     score_floor: float
+    vector_floor: Decimal = Field(ge=-1, le=1)
+    embedding_model: str
+    reranker_model: str
+    model_cache: str
 
 
 class RulesSettings(_Strict):

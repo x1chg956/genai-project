@@ -71,7 +71,7 @@ Loads rule YAML at start-up, records rule-pack version in every result. `evaluat
 | search_typologies | query, k | list[TypologyPassage] | R | 2 |
 | list_document_versions | doc_id | list[DocVersion] | R | 2 |
 
-Returns `[]` with `status="no_support"` when nothing scores above `retrieval.score_floor`.
+Returns `[]` with `status="no_support"` when nothing scores above `retrieval.score_floor`. `search_passages` runs the hybrid pipeline in docs/07. `search_typologies` searches typology passages only (no version filter). `list_document_versions` returns a document's versions, oldest first, with `effective_from`, `superseded_on`, `superseded_by` and the passage count, or `NOT_FOUND`.
 
 Phase 1 reads `corpus.passages`, a JSONL of clauses written by `scripts/ingest.py`. Each line has passage_id, doc_id, title, version, clause_ref, effective_from, superseded_on, kind and text. The version filter is applied before ranking: in force when effective_from ≤ as_of_date and superseded_on is null or later than as_of_date. Tests use a synthetic fixture corpus (`tests/fixtures/passages_test.jsonl`) that contains no regulatory text.
 

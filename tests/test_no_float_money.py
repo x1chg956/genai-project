@@ -28,6 +28,9 @@ ALLOWED = {
     ("auditguard/schemas/common.py", "isinstance(value, float)"),  # refuses floats
     ("auditguard/schemas/common.py", "never a float"),  # the refusal's message
     ("mcp_servers/regulatory_kb/index.py", "float(raw)"),  # BM25 score, stored as Decimal
+    ("mcp_servers/regulatory_kb/index.py", "retrieval_score(raw: float)"),  # score → Decimal
+    # hybrid retrieval: embeddings, cosine, RRF and reranker logits only; no money in the file
+    ("mcp_servers/regulatory_kb/hybrid.py", ""),
     ("data/generator/spec.py", "isinstance(value, float | int)"),  # YAML range -> exact Decimal
     ("data/generator/generate.py", "hours=float("),  # a duration in hours
 }

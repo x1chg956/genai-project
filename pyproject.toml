@@ -24,6 +24,9 @@ dependencies = [
     "langgraph-checkpoint-postgres==3.2.0",  # Phase 2 task 5: Postgres checkpointer
     "prometheus-client==0.26.0",  # tool and case metrics (docs/08 §5, docs/11 §6)
     "cryptography==50.0.2",  # pseudonym vault encryption (docs/08 §3)
+    "fastembed==0.9.1",  # bge-small embeddings + MiniLM cross-encoder on CPU via ONNX (docs/07)
+    "qdrant-client==1.20.0",  # vector index (docs/07); matches the qdrant v1.20.0 image
+    "pypdf==7.0.0",  # corpus PDF to text in scripts/ingest.py (docs/07)
 ]
 
 [build-system]

@@ -22,6 +22,10 @@ class CorpusPassage(Model):
     """Date the document stopped applying; None while it is current."""
     kind: Literal["regulation", "typology"] = "regulation"
     text: str
+    issuer: str | None = None
+    published: date | None = None
+    superseded_by: str | None = None
+    """doc_id of the document that replaces this one (manifest metadata)."""
 
     def in_force(self, as_of: date) -> bool:
         started = self.effective_from is None or self.effective_from <= as_of
@@ -33,3 +37,27 @@ class PassageSearch(Model):
     query: str
     as_of_date: date
     passages: list[Passage]
+
+
+class TypologySearch(Model):
+    """Public typology material (kind `typology`): patterns, not rules in force."""
+
+    status: Literal["ok", "no_support"]
+    query: str
+    passages: list[Passage]
+
+
+class DocVersion(Model):
+    doc_id: str
+    title: str
+    version: str
+    effective_from: date | None
+    superseded_on: date | None
+    superseded_by: str | None
+    passage_count: int
+
+
+class DocVersions(Model):
+    doc_id: str
+    versions: list[DocVersion]
+    """Oldest first: by effective_from, then version."""
