@@ -48,7 +48,7 @@ tracing:                                       # docs/11 §7: every model call t
   workspace_id: ${LANGSMITH_WORKSPACE_ID:-}    # needed when the key is scoped to an organisation
 
 budgets:
-  case: {steps: 12, tool_calls: 20, tokens: 200000, seconds: 180, cost_usd: "0.50"}   # tokens: each ReAct turn resends the history (9B used 89k-118k per case)
+  case: {steps: 12, tool_calls: 20, tokens: 200000, seconds: 300, cost_usd: "0.50"}   # tokens: each ReAct turn resends the history (9B used 89k-118k per case)
   critic_revisions: 2
 
 retrieval: {bm25: true, vector: true, rerank: true, decompose: true,

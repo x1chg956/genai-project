@@ -22,7 +22,7 @@ prompts: {single_agent: prompts/single_agent.md, supervisor: prompts/supervisor.
           researcher: prompts/researcher.md, drafter: prompts/drafter.md, critic_judge: prompts/critic_judge.md}
 graph: c1                                         # c0 | c1 | c2
 budgets:
-  case: {steps: 12, tool_calls: 20, tokens: 200000, seconds: 180, cost_usd: 0.50}
+  case: {steps: 12, tool_calls: 20, tokens: 200000, seconds: 300, cost_usd: 0.50}
   critic_revisions: 2
 retrieval: {bm25: true, vector: true, rerank: true, decompose: true, k_bm25: 20, k_vector: 20, k_final: 5, rrf_k: 60, score_floor: 0.2}
 rules: {pack: rules/IN, version: "1.0.0"}
