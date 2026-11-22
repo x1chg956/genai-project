@@ -1,8 +1,12 @@
 """Seeded synthetic ledger generator (docs/04 §2). Pure: same inputs give the same dataset.
 
-Layout of one run: one customer and one savings account per account slot. Planted scenarios
-take the first slots in spec order (entry order, then variant order), so ALR-SYN-0001 is the
-first variant of the first entry. The remaining slots get ordinary background activity.
+Layout of one run: one customer and one account per account slot.
+- `tiny`: planted scenarios take the first slots in spec order (entry order, then variant
+  order), so ALR-SYN-0001 is the first variant of the first entry. The other slots get the
+  simple v0 background.
+- `full`: each variant is planted `plants_per_variant` times in seeded random slots, so alert
+  order says nothing about the variant. The other slots get the realistic v1 background
+  (background.py, calibrated in background_IN.yaml).
 """
 
 from __future__ import annotations
@@ -19,6 +23,7 @@ from zoneinfo import ZoneInfo
 
 from auditguard.schemas import Alert, Transaction
 from auditguard.schemas.ledger import Channel, Direction
+from data.generator.background import Pools, background_v1, load_background, plan_customer
 from data.generator.model import (
     AccountRow,
     CaseLabel,
@@ -55,9 +60,15 @@ class Profile:
     name: str
     accounts: int
     days: int
+    plants_per_variant: int = 1
+    background: str = "v0"  # v0: simple (tiny); v1: realistic (background.py)
 
 
-PROFILES = {"tiny": Profile("tiny", accounts=10, days=60)}
+PROFILES = {
+    "tiny": Profile("tiny", accounts=10, days=60),
+    # docs/04 §2: >= 300 customers. 182 days ending 2026-03-31 covers Dussehra to Holi.
+    "full": Profile("full", accounts=320, days=182, plants_per_variant=4, background="v1"),
+}
 
 
 class GeneratorError(ValueError):
@@ -77,6 +88,32 @@ def load_names() -> list[str]:
     if len(set(names)) != len(names):
         raise GeneratorError("names_fictional.txt has duplicates")
     return names
+
+
+def name_pool(count: int) -> list[str]:
+    """`count` distinct fictional names: the list itself, then new pairings of its own first
+    and last names (still invented words), each checked against the deny-list."""
+    names = load_names()
+    if count <= len(names):
+        return names
+    deny = {
+        d.strip().casefold()
+        for d in DENY_FILE.read_text(encoding="utf-8").splitlines()
+        if d.strip() and not d.startswith("#")
+    }
+    firsts = list(dict.fromkeys(n.split()[0] for n in names))
+    lasts = list(dict.fromkeys(n.split()[-1] for n in names))
+    seen = {n.casefold() for n in names}
+    pool = list(names)
+    for last in lasts:
+        for first in firsts:
+            name = f"{first} {last}"
+            if name.casefold() not in seen and name.casefold() not in deny:
+                seen.add(name.casefold())
+                pool.append(name)
+    if len(pool) < count:
+        raise GeneratorError(f"only {len(pool)} fictional names for {count} accounts")
+    return pool
 
 
 class Ids:
@@ -331,38 +368,52 @@ def generate(
     ds = Dataset(seed=seed, profile=profile)
     b = Builder(ds, ids, rng)
     start = end_date - timedelta(days=prof.days - 1)
-    names = load_names()
-    if len(names) < prof.accounts:
-        raise GeneratorError("not enough fictional names for this profile")
+    names = name_pool(prof.accounts)
     chosen_names = rng.sample(names, prof.accounts)
 
-    plants = [(e, v) for e in spec.entries for v in e.variants]
+    plants = [
+        (e, v) for e in spec.entries for v in e.variants for _ in range(prof.plants_per_variant)
+    ]
     if len(plants) > prof.accounts:
         raise GeneratorError(f"{len(plants)} planted scenarios do not fit {prof.accounts} accounts")
+    if prof.background == "v1":
+        bg_spec = load_background()
+        pools = Pools.build(ids.next, prof.accounts)
+        slots = rng.sample(range(prof.accounts), len(plants))  # random slot per plant
+        plant_at = dict(zip(slots, plants, strict=True))
+    else:
+        plant_at = dict(enumerate(plants))
 
     for slot in range(prof.accounts):
         customer = ids.next("CUST", 6)
         account = ids.next("ACCT", 6)
-        planted = slot < len(plants)
+        planted = slot in plant_at
+        plan = plan_customer(rng, bg_spec) if prof.background == "v1" and not planted else None
         opened = start - timedelta(days=rng.randint(20, 90) if planted else rng.randint(400, 3000))
         ds.customers.append(
             CustomerRow(
                 customer_token=customer,
-                segment="salaried",
+                segment=plan.segment if plan else "salaried",
                 kyc_risk_band="low" if not planted else rng.choice(("low", "medium")),
-                declared_monthly_turnover=Draw(rng).money(
-                    Range(low=Decimal(40000), high=Decimal(150000))
-                ),
+                declared_monthly_turnover=plan.declared_monthly_turnover
+                if plan
+                else Draw(rng).money(Range(low=Decimal(40000), high=Decimal(150000))),
                 onboarded_at=local(opened, 11),
             )
         )
         ds.parties.append(PartyRow(ids.next("PARTY", 6), customer, chosen_names[slot], "holder"))
-        ds.accounts.append(AccountRow(account, customer, "savings", local(opened, 11), "active"))
-        background(b, account, start, prof.days, light=planted)
+        account_type = plan.account_type if plan else "savings"
+        ds.accounts.append(AccountRow(account, customer, account_type, local(opened, 11), "active"))
+        if plan:
+            background_v1(b, account, start, prof.days, plan, pools, bg_spec)
+        else:
+            # Planted accounts keep the light v0 background in every profile: new accounts
+            # with little else going on, as the planted scenarios were calibrated on.
+            background(b, account, start, prof.days, light=planted)
         if not planted:
             continue
 
-        entry, variant = plants[slot]
+        entry, variant = plant_at[slot]
         params = entry.resolved(variant)
         latest_start = prof.days - _needed_days(params)
         if latest_start < 5:

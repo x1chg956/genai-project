@@ -100,6 +100,7 @@ flowchart LR
 - Deterministic given `--seed`. Writes ledger tables to `auditguard` and labels to `groundtruth`.
 - Inputs: `typology_spec.yaml` (written by role 1) and a scale profile (`tiny` for Phase 1, `full` for Phase 2+).
 - Background: ≥300 customers for `full` (10 for `tiny`), realistic channel mix (UPI, NEFT, IMPS, cash, card), salary days, festival spikes.
+  Built: `full` = 320 customers over 182 days ending 2026-03-31, each variant planted 4 times in random slots. Background v1 (`data/generator/background.py`) is calibrated in `data/generator/background_IN.yaml`, which cites its sources (RBI Payment System Indicators and Bulletin, Worldline, IIMB) next to each ticket size. `tiny` keeps the simple v0 background and is unchanged.
 - Injection: each typology at a controllable intensity; benign look-alikes; evasive variants (amounts jittered just outside a boundary, spread over a longer window); data defects (missing days, duplicates, reversals).
 - Names from `names_fictional.txt`, checked against a deny-list. IDs look like `ACCT-SYN-000123`, `CUST-SYN-000045`, `TXN-SYN-0000001`.
 - Output: `alert` rows for each planted scenario and for noise alerts.

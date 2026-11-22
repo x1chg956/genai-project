@@ -1,0 +1,90 @@
+# Ordinary (background) activity for the `full` profile (docs/04 §2: realistic channel mix,
+# salary days, festival spikes). Not a typology: nothing here is planted or labelled.
+#
+# Ticket sizes are rounded from public payment statistics, then shaped as buckets so every
+# draw is whole paise (no floats). Each bucket is [low, high, weight]; the mean noted is the
+# bucket mix's mean, not a quoted figure.
+#
+# Sources (checked 2026-11-22):
+# - UPI overall average ticket ~INR 1,314 in 2025 and P2M ~INR 592; P2M is 64% of UPI volume
+#   (Worldline India Digital Payments Report 2025; IIMB CDPG note on UPI, June 2025 data):
+#   https://worldline.com/content/dam/worldline/local/en-in/documents/main-page11111/Worldline-India-Digital-Payment-Report-1H-2025-1.pdf
+#   https://www.iimb.ac.in/cdpg/pdf/digital-public-infrastructure-truly-scalable.pdf
+#   P2P average is derived: (1314 - 0.64 * 592) / 0.36 ~ INR 2,600.
+# - NEFT ~INR 46,200 and IMPS ~INR 12,700 per transaction, FY 2024-25 (RBI Payment System
+#   Indicators, value / volume): https://www.rbi.org.in/scripts/PSIUserView.aspx?Id=53
+#   NEFT here is retail only (rent, EMI, suppliers), so it is below the all-NEFT mean, which
+#   corporate payments dominate.
+# - Debit card PoS ~INR 2,776 and ATM cash withdrawal ~INR 5,079, FY 2024-25 (RBI Bulletin,
+#   payment system tables): https://www.rbi.org.in/Scripts/BS_ViewBulletin.aspx?Id=23498
+# - Festival dates (Indian gazetted holidays): https://indif.com/nri/panchang/festival_Calendar.asp
+#   https://www.timeanddate.com/holidays/india/diwali
+#
+# Review: role 1 (data realism). Changing a number changes the `full` dataset for every seed.
+
+version: 1
+
+segments:            # share of background customers, integer weights
+  salaried: 60
+  self_employed: 20
+  student: 10
+  pensioner: 10
+
+tickets:
+  upi_p2m:           # mean ~INR 520 (source P2M ~592)
+    - [20, 200, 50]
+    - [200, 800, 38]
+    - [800, 3000, 11]
+    - [3000, 10000, 1]
+  upi_p2p:           # mean ~INR 2,400 (derived P2P ~2,600)
+    - [100, 1000, 55]
+    - [1000, 5000, 37]
+    - [5000, 20000, 8]
+  card_pos:          # mean ~INR 2,840 (source ~2,776)
+    - [200, 1500, 45]
+    - [1500, 5000, 45]
+    - [5000, 15000, 10]
+  atm_cash:          # mean ~INR 5,200 before rounding down to INR 500 (source ~5,079)
+    - [1000, 3000, 20]
+    - [3000, 6000, 45]
+    - [6000, 10000, 35]
+  imps:              # mean ~INR 13,200 (source ~12,700)
+    - [1000, 5000, 40]
+    - [5000, 20000, 40]
+    - [20000, 50000, 20]
+  shop_sale:         # a customer paying a small shop by UPI
+    - [30, 300, 60]
+    - [300, 1500, 35]
+    - [1500, 6000, 5]
+
+# Monthly counts at spend scale 100 (a salaried customer earning INR 60,000). Each segment
+# scales these by its own spend scale (see background.py).
+monthly:
+  salaried:      {upi_p2m: 25, upi_p2p: 6, card_pos: 4, atm_cash: 2, imps: 1}
+  self_employed: {upi_p2m: 15, upi_p2p: 4, card_pos: 3, atm_cash: 3, imps: 2}
+  student:       {upi_p2m: 20, upi_p2p: 4, card_pos: 1, atm_cash: 1, imps: 0}
+  pensioner:     {upi_p2m: 10, upi_p2p: 2, card_pos: 2, atm_cash: 3, imps: 0}
+
+income:
+  salary: [25000, 150000]          # monthly, NEFT from an employer
+  pension: [12000, 50000]          # monthly, NEFT on the 1st
+  allowance: [3000, 15000]         # student, monthly IMPS/UPI from a family member
+  shop_sales_per_month: [60, 220]  # self-employed: UPI credits from many distinct customers
+  shop_cash_deposit: [8000, 60000] # self-employed, about weekly, at the branch
+  supplier_payment: [10000, 90000] # self-employed, NEFT, about weekly
+  rent_share: [20, 35]             # salaried rent, percent of salary, by NEFT or UPI
+  emi: [4000, 25000]               # monthly NEFT, for some salaried customers
+  emi_percent: 45                  # share of salaried customers with an EMI
+  festival_bonus_percent: 30       # salaried customers paid a bonus before Diwali
+  festival_bonus: [5000, 40000]
+
+# Spending rises in the week before a festival: count multiplier, in percent, on UPI P2M and
+# card PoS for days [-6, 0] relative to the date.
+festival_uplift_percent: 180
+festivals:
+  - {name: Dussehra, date: 2025-10-02}
+  - {name: Diwali, date: 2025-10-20}
+  - {name: Christmas, date: 2025-12-25}
+  - {name: Makar Sankranti / Pongal, date: 2026-01-14}
+  - {name: Holi, date: 2026-03-04}
+  - {name: Diwali, date: 2026-11-08}
