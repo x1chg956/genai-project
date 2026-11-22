@@ -55,8 +55,11 @@ run-case:  ## run one case, e.g. make run-case CASE=ALR-SYN-0001 [THREAD=RUN-...
 mini-eval:  ## Phase 1 mini evaluation on eval/cases/dev/phase1.jsonl (live model, needs make seed)
 	$(UV) python -m eval.mini $(ARGS)
 
-eval:  ## run the evaluation harness, e.g. make eval CONFIG=... SPLIT=dev (Phase 2)
-	@echo "make eval: not implemented until Phase 2 (eval/harness.py, docs/10 §3)"; exit 1
+CONFIG ?= configs/experiments/c1_single.yaml
+SPLIT ?= dev
+REPEATS ?= 1
+eval:  ## run the evaluation harness, e.g. make eval CONFIG=configs/experiments/c1_single.yaml SPLIT=dev REPEATS=1
+	$(UV) python -m eval.harness --config $(CONFIG) --split $(SPLIT) --repeats $(REPEATS)
 
 # Generators that write review evidence from code (docs/11 §8); each runs as `python -m <module>`.
 EVIDENCE_SCRIPTS := scripts.gen_tool_catalogue scripts.export_graphs

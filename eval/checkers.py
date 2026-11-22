@@ -8,6 +8,7 @@ on every case whether or not its expectations are filled in.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -121,6 +122,38 @@ def check_final_state(case: EvalCase, state: dict[str, Any]) -> Check:
     )
 
 
+def _normal(text: str) -> str:
+    return " ".join(re.sub(r"[^\w.,%-]+", " ", text.casefold()).split())
+
+
+def draft_text(state: dict[str, Any]) -> str:
+    result: SingleAgentResult | None = state.get("result")
+    if result is None:
+        return ""
+    return " ".join(s.text for s in result.draft.sections.sentences())
+
+
+def check_required_facts(case: EvalCase, state: dict[str, Any]) -> Check:
+    """Normalised substring match; paraphrases need the judge (docs/10 §5, Phase 4)."""
+    if case.required_facts is None:
+        return Check("required_facts", "SKIP", "required_facts not set (role 1)")
+    text = _normal(draft_text(state))
+    missing = [f for f in case.required_facts if _normal(f) not in text]
+    if missing:
+        return Check("required_facts", "FAIL", f"not stated: {missing}")
+    return Check("required_facts", "PASS", f"{len(case.required_facts)} stated")
+
+
+def check_forbidden_claims(case: EvalCase, state: dict[str, Any]) -> Check:
+    if case.forbidden_claims is None:
+        return Check("forbidden_claims", "SKIP", "forbidden_claims not set (role 1)")
+    text = _normal(draft_text(state))
+    made = [c for c in case.forbidden_claims if _normal(c) in text]
+    if made:
+        return Check("forbidden_claims", "FAIL", f"claimed: {made}")
+    return Check("forbidden_claims", "PASS", f"none of {len(case.forbidden_claims)} made")
+
+
 def run_checks(case: EvalCase, state: dict[str, Any], budget_calls: int) -> list[Check]:
     return [
         check_disposition(case, state),
@@ -129,4 +162,6 @@ def run_checks(case: EvalCase, state: dict[str, Any], budget_calls: int) -> list
         check_citations(state),
         check_trajectory(case, state, budget_calls),
         check_final_state(case, state),
+        check_required_facts(case, state),
+        check_forbidden_claims(case, state),
     ]

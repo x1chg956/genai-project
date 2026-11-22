@@ -251,8 +251,15 @@ class McpSettings(_Strict):
     description_hashes: dict[str, str] = Field(default_factory=dict)
 
 
+class ExperimentMeta(_Strict):
+    id: str
+    arm: str  # E1..E6
+    description: str = ""
+
+
 class Settings(_Strict):
     config_version: int
+    experiment: ExperimentMeta | None = None
     profile: str
     timezone: str
     providers: dict[str, ProviderSettings]

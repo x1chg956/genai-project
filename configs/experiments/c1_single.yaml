@@ -1,0 +1,7 @@
+# E1 arm: C1, the single ReAct agent (docs/10 §6). Frozen at the end of Phase 2 (tag c1-frozen).
+# Same model, tools and budget as c0_fixed.yaml and c2_team.yaml; only the orchestration differs.
+experiment:
+  id: c1_single
+  arm: E1
+  description: single ReAct agent over the four MCP servers, all R and C tools, no write tool
+graph: c1

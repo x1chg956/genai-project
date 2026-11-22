@@ -99,6 +99,39 @@ def check_not_heldout(path: Path, environ: dict[str, str] | None = None) -> None
 
 def load_cases(path: Path, environ: dict[str, str] | None = None) -> list[EvalCase]:
     check_not_heldout(path, environ)
+    return _read(path)
+
+
+DEV_DIR = REPO_ROOT / "eval" / "cases" / "dev"
+
+
+def dev_cases(environ: dict[str, str] | None = None) -> list[EvalCase]:
+    """Every dev case file, in name order (docs/10 §1)."""
+    cases: list[EvalCase] = []
+    for path in sorted(DEV_DIR.glob("*.jsonl")):
+        cases += load_cases(path, environ)
+    ids = [c.case_id for c in cases]
+    if len(ids) != len(set(ids)):
+        raise ValueError("duplicate case_id across dev case files")
+    return cases
+
+
+def heldout_cases(environ: dict[str, str] | None = None) -> list[EvalCase]:
+    """The held-out split, for role 1's final runs only: read from $HELDOUT_DIR, never from
+    the repository. Development tooling and Claude Code never call this."""
+    env = os.environ if environ is None else environ
+    root = env.get("HELDOUT_DIR")
+    if not root:
+        raise HeldOutError("--split heldout needs HELDOUT_DIR (mounted by role 1)")
+    cases: list[EvalCase] = []
+    for path in sorted(Path(root).glob("*.jsonl")):
+        cases += _read(path)
+    if any(c.split != "heldout" for c in cases):
+        raise ValueError("a case under HELDOUT_DIR is not marked split: heldout")
+    return cases
+
+
+def _read(path: Path) -> list[EvalCase]:
     cases: list[EvalCase] = []
     with path.open(encoding="utf-8") as fh:
         for number, line in enumerate(fh, start=1):

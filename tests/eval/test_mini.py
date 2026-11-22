@@ -86,6 +86,8 @@ def test_unset_expectations_skip_and_invariants_still_run(tmp_path: Path) -> Non
         "citations": "PASS",
         "trajectory": "PASS",
         "final_state": "SKIP",
+        "required_facts": "SKIP",
+        "forbidden_claims": "SKIP",
     }
 
 
@@ -100,6 +102,8 @@ def test_filled_expectations_pass_and_fail(tmp_path: Path) -> None:
         expected_rule_outputs={"must_fire": [], "must_not_fire": ["R04"]},
         gate_script={"decision": "file", "approval": "approve"},
         expected_trajectory={"required_tool_classes": ["rules", "retrieval"]},
+        required_facts=["Indicator requires  review"],  # normalised: case and spacing
+        forbidden_claims=["customer is a criminal"],
     )
     assert set(by_name(run_checks(good, state, BUDGET)).values()) == {"PASS"}
     bad = case(
@@ -107,10 +111,12 @@ def test_filled_expectations_pass_and_fail(tmp_path: Path) -> None:
         expected_rule_outputs={"must_fire": ["R04"]},
         gate_script={"decision": "no_file", "reason_code": "X", "rationale": "y"},
         expected_trajectory={"required_tool_classes": ["drilldown"], "max_tool_calls": 2},
+        required_facts=["inflows from 23 distinct senders"],
+        forbidden_claims=["requires review"],
     )
     checks = by_name(run_checks(bad, state, BUDGET))
     assert checks["disposition"] == checks["rules"] == checks["final_state"] == "FAIL"
-    assert checks["trajectory"] == "FAIL"
+    assert checks["trajectory"] == checks["required_facts"] == checks["forbidden_claims"] == "FAIL"
 
 
 def test_numbers_checker_catches_a_number_no_tool_returned(tmp_path: Path) -> None:
