@@ -31,7 +31,7 @@ import psycopg
 from langchain_core.runnables import RunnableConfig
 from langgraph.types import Command
 
-from auditguard.approval.records import ApprovalStore
+from auditguard.approval.stores import approval_store
 from auditguard.config import ConfigError, Settings, load_settings, resolve_path
 from auditguard.db import conninfo
 from auditguard.graph.deps import GraphDeps
@@ -321,7 +321,7 @@ def live_deps(settings: Settings) -> GraphDeps:
     return GraphDeps(
         settings=settings,
         clients=server_clients(settings),
-        approvals=ApprovalStore(resolve_path(settings.approval.store_path)),
+        approvals=approval_store(settings),
         reason_codes=load_reason_codes(resolve_path(settings.str_report.reason_codes)),
         chat_model=get_model(prompt.model_role, settings),
         answer_model=get_structured_model(prompt.model_role, SingleAgentAnswer, settings),

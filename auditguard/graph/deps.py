@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 from langchain_core.language_models import BaseChatModel
 from langchain_core.runnables import Runnable
 
-from auditguard.approval.records import ApprovalStore
+from auditguard.approval.records import ApprovalRepo
 from auditguard.config import Settings
 from auditguard.hooks.tools import ClientFactory
 from auditguard.prompts import Prompt
@@ -21,7 +21,7 @@ from auditguard.prompts import Prompt
 class GraphDeps:
     settings: Settings
     clients: ClientFactory
-    approvals: ApprovalStore
+    approvals: ApprovalRepo
     reason_codes: dict[str, dict[str, str]]
     chat_model: BaseChatModel
     answer_model: Runnable[Any, Any]

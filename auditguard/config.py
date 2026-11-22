@@ -201,6 +201,8 @@ class MemorySettings(_Strict):
 class ApprovalSettings(_Strict):
     ttl_minutes: int
     hmac_key: OptSecret = None
+    backend: Literal["postgres", "sqlite"]
+    schema_: str = Field(alias="schema", pattern=r"^[a-z_][a-z0-9_]*$")
     store_path: str
 
 

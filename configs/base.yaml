@@ -91,7 +91,9 @@ memory: {short_term: {keep_turns: 12}, long_term: {enabled: false, max_lessons: 
 approval:
   ttl_minutes: 120
   hmac_key: ${APPROVAL_HMAC_KEY:-}
-  store_path: ${APPROVAL_STORE:-var/approvals.db}   # Phase 1 SQLite; Postgres from Phase 2
+  backend: ${APPROVAL_BACKEND:-postgres}       # postgres (databases.app, schema below) | sqlite (store_path)
+  schema: approval
+  store_path: ${APPROVAL_STORE:-var/approvals.db}
 
 ingest:                                        # ingest_validate (code node), docs/03 §2
   window_days: 60                              # local days ending on the alert's detection date

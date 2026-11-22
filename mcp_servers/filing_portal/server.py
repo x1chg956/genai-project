@@ -16,7 +16,8 @@ from typing import Any, Literal
 from fastmcp import FastMCP
 
 from auditguard.approval.canonical import CanonicalError, canonical_json, sha256_hex
-from auditguard.approval.records import ApprovalStore, problems
+from auditguard.approval.records import ApprovalRepo, problems
+from auditguard.approval.stores import approval_store
 from auditguard.config import FormLimits, Settings, require_secret, resolve_path
 from auditguard.schemas import Receipt, ToolError
 from mcp_servers.common.errors import tool_error
@@ -46,7 +47,7 @@ def form_issues(payload: dict[str, Any], data: bytes, limits: FormLimits) -> lis
 
 def build_server(
     db: PortalDb,
-    approvals: ApprovalStore,
+    approvals: ApprovalRepo,
     guard: ToolGuard,
     *,
     approval_key: bytes,
@@ -170,7 +171,7 @@ def build_server(
 def build_from_settings(settings: Settings) -> FastMCP:
     return build_server(
         PortalDb(resolve_path(settings.filing_portal.db_path)),
-        ApprovalStore(resolve_path(settings.approval.store_path), read_only=True),
+        approval_store(settings, read_only=True),
         guard_from_settings("filing_portal", settings),
         approval_key=require_secret(settings.approval.hmac_key, "APPROVAL_HMAC_KEY"),
         limits=settings.filing_portal.form_limits,

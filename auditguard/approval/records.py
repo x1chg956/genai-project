@@ -1,7 +1,8 @@
-"""Approval records: HMAC signing, verification and the Phase 1 store (docs/08 §2).
+"""Approval records: HMAC signing, verification and the stores (docs/08 §2).
 
-The approval gate writes records; the filing portal only reads them. Phase 1 keeps them in a
-SQLite file (`approval.store_path`); Phase 2 moves them to Postgres behind the same methods.
+The approval gate writes records; the filing portal only reads them. From Phase 2 they live
+in Postgres (`databases.app`, schema `approval.schema`); `approval.backend: sqlite` keeps the
+Phase 1 SQLite file (`approval.store_path`). Both stores have the same three methods.
 """
 
 from __future__ import annotations
@@ -12,6 +13,11 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
+from typing import Protocol
+
+import psycopg
+from psycopg import sql
+from psycopg.conninfo import make_conninfo
 
 from auditguard.approval.canonical import canonical_json
 from auditguard.schemas import ApprovalRecord
@@ -70,6 +76,12 @@ CREATE INDEX IF NOT EXISTS approvals_case ON approvals (case_id);
 """
 
 
+class ApprovalRepo(Protocol):
+    def put(self, record: ApprovalRecord) -> None: ...
+    def get(self, approval_id: str) -> ApprovalRecord | None: ...
+    def void_case(self, case_id: str) -> int: ...
+
+
 class ApprovalStore:
     """SQLite store of signed approval records. `read_only=True` for the portal."""
 
@@ -121,5 +133,77 @@ class ApprovalStore:
         with self._connect() as conn:
             cur = conn.execute(
                 "UPDATE approvals SET void = 1 WHERE case_id = ? AND void = 0", (case_id,)
+            )
+            return cur.rowcount
+
+
+class PostgresApprovalStore:
+    """Postgres store of signed approval records, in its own schema of the app database.
+
+    `read_only=True` (the portal) opens every connection with
+    default_transaction_read_only, so it cannot write even with the app role.
+    """
+
+    def __init__(self, conninfo: str, schema: str, *, read_only: bool = False) -> None:
+        self.read_only = read_only
+        self._table = sql.Identifier(schema, "approvals")
+        options = "-c default_transaction_read_only=on" if read_only else ""
+        self._conninfo = make_conninfo(conninfo, options=options) if options else conninfo
+        if not read_only:
+            with psycopg.connect(self._conninfo) as conn:
+                conn.execute(
+                    sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(schema))
+                )
+                conn.execute(
+                    sql.SQL(
+                        "CREATE TABLE IF NOT EXISTS {} ("
+                        " approval_id TEXT PRIMARY KEY,"
+                        " case_id TEXT NOT NULL,"
+                        " record_json TEXT NOT NULL,"
+                        " void BOOLEAN NOT NULL DEFAULT false,"
+                        " created_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+                    ).format(self._table)
+                )
+                conn.execute(
+                    sql.SQL("CREATE INDEX IF NOT EXISTS approvals_case ON {} (case_id)").format(
+                        self._table
+                    )
+                )
+
+    def put(self, record: ApprovalRecord) -> None:
+        with psycopg.connect(self._conninfo) as conn:
+            conn.execute(
+                sql.SQL(
+                    "INSERT INTO {} (approval_id, case_id, record_json, void) VALUES (%s,%s,%s,%s)"
+                ).format(self._table),
+                (record.approval_id, record.case_id, record.model_dump_json(), record.void),
+            )
+
+    def get(self, approval_id: str) -> ApprovalRecord | None:
+        try:
+            with psycopg.connect(self._conninfo) as conn:
+                row = conn.execute(
+                    sql.SQL("SELECT record_json, void FROM {} WHERE approval_id = %s").format(
+                        self._table
+                    ),
+                    (approval_id,),
+                ).fetchone()
+        except psycopg.errors.UndefinedTable:
+            if self.read_only:  # store not created yet: nothing has been approved
+                return None
+            raise
+        if row is None:
+            return None
+        record = ApprovalRecord.model_validate_json(row[0])
+        return record.model_copy(update={"void": bool(row[1])})
+
+    def void_case(self, case_id: str) -> int:
+        """Void every approval for the case (an edit creates a new report version)."""
+        with psycopg.connect(self._conninfo) as conn:
+            cur = conn.execute(
+                sql.SQL("UPDATE {} SET void = true WHERE case_id = %s AND NOT void").format(
+                    self._table
+                ),
+                (case_id,),
             )
             return cur.rowcount

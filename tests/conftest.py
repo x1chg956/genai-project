@@ -18,6 +18,7 @@ TEST_ENV = {
     "APPROVAL_HMAC_KEY": "test-approval-hmac-key",
     "TRACING_BACKEND": "none",
     "CHECKPOINTER": "sqlite",  # unit tests never touch a real database
+    "APPROVAL_BACKEND": "sqlite",
 }
 
 
