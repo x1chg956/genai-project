@@ -18,3 +18,12 @@ CREATE TABLE IF NOT EXISTS groundtruth.scenario_params (
     alert_id TEXT PRIMARY KEY REFERENCES groundtruth.case_labels,
     params   JSONB NOT NULL
 );
+
+-- Planted data-quality defects (missing days, double postings, reversals), full profile.
+CREATE TABLE IF NOT EXISTS groundtruth.data_defects (
+    defect_id     SERIAL PRIMARY KEY,
+    account_token TEXT NOT NULL,
+    kind          TEXT NOT NULL CHECK (kind IN ('missing_days', 'double_post', 'reversal')),
+    txn_ids       TEXT[] NOT NULL,
+    detail        JSONB NOT NULL
+);

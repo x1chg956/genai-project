@@ -61,6 +61,16 @@ class ScenarioParams:
     params: dict[str, str]
 
 
+@dataclass(frozen=True)
+class DataDefect:
+    """A planted data-quality defect (docs/04 §2). Ground truth: never reachable by agents."""
+
+    account_token: str
+    kind: str  # missing_days | double_post | reversal
+    txn_ids: list[str]
+    detail: dict[str, str]
+
+
 @dataclass
 class Dataset:
     seed: int
@@ -72,3 +82,4 @@ class Dataset:
     alerts: list[Alert] = field(default_factory=list)
     labels: list[CaseLabel] = field(default_factory=list)
     scenario_params: list[ScenarioParams] = field(default_factory=list)
+    defects: list[DataDefect] = field(default_factory=list)

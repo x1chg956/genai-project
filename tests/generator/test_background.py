@@ -175,3 +175,48 @@ def test_background_spec_rejects_bad_buckets(tmp_path: Path) -> None:
 def test_last_working_day() -> None:
     assert last_working_day(2026, 1) == date(2026, 1, 30)  # 31 Jan 2026 is a Saturday
     assert last_working_day(2025, 12) == date(2025, 12, 31)
+
+
+def test_defects_are_planted_on_background_accounts_only(full: Dataset) -> None:
+    kinds = Counter(d.kind for d in full.defects)
+    assert set(kinds) == {"missing_days", "double_post", "reversal"}
+    alerted = {a.account_ref for a in full.alerts}
+    assert not {d.account_token for d in full.defects} & alerted
+
+
+def test_missing_days_leave_a_gap(full: Dataset) -> None:
+    gap = next(d for d in full.defects if d.kind == "missing_days")
+    start, end = date.fromisoformat(gap.detail["from"]), date.fromisoformat(gap.detail["to"])
+    days = {
+        r.txn.ts.astimezone(IST).date()
+        for r in full.transactions
+        if r.txn.account_token == gap.account_token
+    }
+    assert not {d for d in days if start <= d <= end}
+    assert (end - start).days + 1 == int(gap.detail["days"])
+
+
+def test_double_posts_and_reversals_match_their_originals(full: Dataset) -> None:
+    by_id = {r.txn.txn_id: r.txn for r in full.transactions}
+    for d in full.defects:
+        if d.kind == "missing_days":
+            continue
+        first, second = (by_id[i] for i in d.txn_ids)
+        assert first.amount == second.amount == Decimal(d.detail["amount"])
+        assert first.counterparty_token == second.counterparty_token
+        if d.kind == "double_post":
+            assert (first.ts, first.direction, first.channel) == (
+                second.ts,
+                second.direction,
+                second.channel,
+            )
+        else:
+            assert (first.direction, second.direction) == ("debit", "credit")
+            assert second.ts > first.ts
+
+
+def test_defects_reach_the_groundtruth_rows(full: Dataset) -> None:
+    from data.generator.writer import label_rows
+
+    rows = next(v for k, v in label_rows(full).items() if k.startswith("data_defects"))
+    assert len(rows) == len(full.defects) and {len(r) for r in rows} == {4}

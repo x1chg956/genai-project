@@ -62,8 +62,18 @@ class Festival(_Strict):
     date: date
 
 
+class DefectSpec(_Strict):
+    missing_days_percent: int = Field(ge=0, le=100)
+    missing_days: tuple[int, int]
+    double_post_per_mille: int = Field(ge=0, le=1000)
+    reversal_percent: int = Field(ge=0, le=100)
+    reversals: tuple[int, int]
+    reversal_delay_minutes: tuple[int, int]
+
+
 class BackgroundSpec(_Strict):
     version: int
+    defects: DefectSpec
     segments: dict[Segment, int]
     tickets: dict[str, list[Bucket]]
     monthly: dict[Segment, dict[str, int]]

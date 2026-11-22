@@ -24,6 +24,7 @@ from zoneinfo import ZoneInfo
 from auditguard.schemas import Alert, Transaction
 from auditguard.schemas.ledger import Channel, Direction
 from data.generator.background import Pools, background_v1, load_background, plan_customer
+from data.generator.defects import plant_defects
 from data.generator.model import (
     AccountRow,
     CaseLabel,
@@ -446,5 +447,10 @@ def generate(
             ScenarioParams(alert_id, {"plant_start": plant_start.isoformat(), **result.drawn})
         )
 
+    if prof.background == "v1":
+        background_accounts = [
+            a.account_token for i, a in enumerate(ds.accounts) if i not in plant_at
+        ]
+        plant_defects(ds, background_accounts, bg_spec.defects, rng, ids.next)
     ds.transactions.sort(key=lambda r: (r.txn.ts, r.txn.txn_id))
     return ds

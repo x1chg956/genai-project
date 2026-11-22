@@ -88,6 +88,10 @@ def label_rows(ds: Dataset) -> dict[str, list[tuple[Any, ...]]]:
         "scenario_params": [
             (sp.alert_id, json.dumps(sp.params, sort_keys=True)) for sp in ds.scenario_params
         ],
+        "data_defects (account_token, kind, txn_ids, detail)": [
+            (d.account_token, d.kind, d.txn_ids, json.dumps(d.detail, sort_keys=True))
+            for d in ds.defects
+        ],
     }
 
 
@@ -130,6 +134,9 @@ def write_labels(ds: Dataset, groundtruth_conninfo: str) -> None:
     with psycopg.connect(groundtruth_conninfo) as conn:
         _apply(conn, SCHEMA_DIR / "groundtruth.sql")
         with conn.cursor() as cur:
-            cur.execute("TRUNCATE groundtruth.scenario_params, groundtruth.case_labels")
+            cur.execute(
+                "TRUNCATE groundtruth.data_defects, groundtruth.scenario_params,"
+                " groundtruth.case_labels"
+            )
             for table, rows in label_rows(ds).items():
                 _insert(cur, f"groundtruth.{table}", rows)
