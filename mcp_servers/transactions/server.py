@@ -27,6 +27,7 @@ from mcp_servers.common.ledger import (
     case_accounts,
     local_day_bounds,
 )
+from mcp_servers.common.quality import assess, rule_input
 from mcp_servers.transactions import stats
 from mcp_servers.transactions.models import AccountSummary, CounterpartyFlows, LedgerPage
 
@@ -62,7 +63,10 @@ def build_server(repo: LedgerRepo, guard: ToolGuard, *, tz: ZoneInfo, max_rows: 
     ) -> LedgerPage | ToolError:
         """R. One page (at most 200 rows) of an account's transactions between two
         Asia/Kolkata local dates, inclusive, ordered by time. Amounts are decimal strings.
-        `ledger_ref` names the whole range for evaluate_rules."""
+        `ledger_ref` names the whole range for evaluate_rules. `quality` covers the whole
+        range: days whose closing balance does not reconcile with the rows (missing or extra
+        rows), duplicate postings quarantined and reversal pairs netted. Every row on file is
+        listed, including quarantined and netted ones."""
         tool = "get_transactions"
         alert = scoped(tool, case_id, account_token)
         if isinstance(alert, ToolError):
@@ -72,6 +76,15 @@ def build_server(repo: LedgerRepo, guard: ToolGuard, *, tz: ZoneInfo, max_rows: 
         if (to_date - from_date).days + 1 > MAX_RANGE_DAYS:
             return tool_error("INVALID_INPUT", f"range is longer than {MAX_RANGE_DAYS} days", tool)
         rows = repo.transactions(account_token, *local_day_bounds(from_date, to_date, tz))
+        opened = repo.account_opened(account_token)
+        quality = assess(
+            rows,
+            repo.closing_balances(account_token, from_date, to_date),
+            from_date,
+            to_date,
+            tz,
+            opened.astimezone(tz).date() if opened else None,
+        )
         start = (page - 1) * max_rows
         return LedgerPage(
             account_token=account_token,
@@ -82,6 +95,7 @@ def build_server(repo: LedgerRepo, guard: ToolGuard, *, tz: ZoneInfo, max_rows: 
             total=len(rows),
             has_more=start + max_rows < len(rows),
             ledger_ref=str(make_ledger_ref(account_token, from_date, to_date, rows)),
+            quality=quality,
             transactions=rows[start : start + max_rows],
         )
 
@@ -90,13 +104,14 @@ def build_server(repo: LedgerRepo, guard: ToolGuard, *, tz: ZoneInfo, max_rows: 
         agent_token: str, case_id: str, account_token: str, window_days: WindowDays
     ) -> AccountSummary | ToolError:
         """R. Counts, totals, p50 and p90 per channel and direction over the last
-        window_days local days up to the alert date. Exact decimal amounts."""
+        window_days local days up to the alert date. Exact decimal amounts. Duplicate
+        postings and netted reversal pairs are left out, as in evaluate_rules."""
         tool = "get_account_summary"
         alert = scoped(tool, case_id, account_token)
         if isinstance(alert, ToolError):
             return alert
         start, end = window(alert, window_days)
-        rows = repo.transactions(account_token, *local_day_bounds(start, end, tz))
+        rows = rule_input(repo.transactions(account_token, *local_day_bounds(start, end, tz)))
         return AccountSummary(
             account_token=account_token,
             window_days=window_days,
@@ -117,13 +132,14 @@ def build_server(repo: LedgerRepo, guard: ToolGuard, *, tz: ZoneInfo, max_rows: 
         top_k: Annotated[int, Field(ge=1, le=50)] = 10,
     ) -> CounterpartyFlows | ToolError:
         """R. The top_k counterparties by total value over the last window_days local days
-        up to the alert date, with credit and debit counts and totals."""
+        up to the alert date, with credit and debit counts and totals. Duplicate postings
+        and netted reversal pairs are left out, as in evaluate_rules."""
         tool = "get_counterparty_flows"
         alert = scoped(tool, case_id, account_token)
         if isinstance(alert, ToolError):
             return alert
         start, end = window(alert, window_days)
-        rows = repo.transactions(account_token, *local_day_bounds(start, end, tz))
+        rows = rule_input(repo.transactions(account_token, *local_day_bounds(start, end, tz)))
         flows = stats.counterparty_flows(rows)
         return CounterpartyFlows(
             account_token=account_token,

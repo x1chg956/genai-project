@@ -167,6 +167,7 @@ class TracingSettings(_Strict):
 
 class IngestSettings(_Strict):
     window_days: int = Field(ge=1, le=366)
+    min_coverage: Decimal = Field(ge=0, le=1)
 
 
 class CheckpointerSettings(_Strict):

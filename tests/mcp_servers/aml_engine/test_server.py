@@ -24,6 +24,7 @@ from tests.mcp_servers.helpers import (
     Called,
     call,
     guard,
+    ist,
     small_ledger,
     small_repo,
     token,
@@ -120,12 +121,35 @@ def test_evaluate_rules_refuses_a_changed_ledger() -> None:
 
 @pytest.mark.tool("evaluate_rules")
 def test_evaluate_rules_ledger_defect_is_reported() -> None:
-    dup = small_ledger()[0]
+    usd = small_ledger()[0].model_copy(update={"txn_id": "TXN-SYN-0000099", "currency": "USD"})
     repo = InMemoryLedgerRepo(
-        alerts=[a for a in (small_repo().alert(CASE),) if a], transactions=[*small_ledger(), dup]
+        alerts=[a for a in (small_repo().alert(CASE),) if a], transactions=[*small_ledger(), usd]
     )
     r = run("evaluate_rules", repo, ledger_ref=ref_for(repo))
-    assert r.code == "INVALID_INPUT" and "duplicate" in r.result["message"]
+    assert r.code == "INVALID_INPUT" and "non-INR" in r.result["message"]
+
+
+@pytest.mark.tool("evaluate_rules")
+def test_evaluate_rules_leaves_out_duplicates_and_netted_reversals() -> None:
+    first = small_ledger()[0]
+    copy = first.model_copy(update={"txn_id": "TXN-SYN-0000098"})  # same content, new id
+    debit = txn(60, ist(30, 16), "700.00", "debit", "IMPS", "CPTY-SYN-000010")
+    back = txn(61, ist(30, 17), "700.00", "credit", "IMPS", "CPTY-SYN-000010").model_copy(
+        update={"reverses_txn_id": debit.txn_id}
+    )
+    repo = InMemoryLedgerRepo(
+        alerts=[a for a in (small_repo().alert(CASE),) if a],
+        transactions=[*small_ledger(), copy, debit, back],
+        kyc_by_account={ACCT: kyc} if (kyc := small_repo().kyc_for_account(ACCT)) else None,
+    )
+    r = run("evaluate_rules", repo, ledger_ref=ref_for(repo))
+    clean = run("evaluate_rules", small_repo(), ledger_ref=ref_for(small_repo()))
+    assert not r.is_error
+    assert (r.result["txn_count"], r.result["excluded_txn_count"]) == (
+        clean.result["txn_count"],
+        3,
+    )
+    assert r.result["results"] == clean.result["results"]
 
 
 @pytest.mark.tool("get_rule_metadata")

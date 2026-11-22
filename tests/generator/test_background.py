@@ -220,3 +220,66 @@ def test_defects_reach_the_groundtruth_rows(full: Dataset) -> None:
 
     rows = next(v for k, v in label_rows(full).items() if k.startswith("data_defects"))
     assert len(rows) == len(full.defects) and {len(r) for r in rows} == {4}
+
+
+def _assess_all(ds: Dataset) -> dict[str, Any]:
+    """Run the ingest quality check (the same code the servers use) on every account over the
+    whole generated span, against the generated closing balances."""
+    from datetime import timedelta
+
+    from mcp_servers.common.quality import assess
+
+    end = date(2026, 3, 31)
+    start = end - timedelta(days=181)
+    rows: dict[str, list[Any]] = defaultdict(list)
+    for r in ds.transactions:
+        rows[r.txn.account_token].append(r.txn)
+    closing: dict[str, dict[date, Decimal]] = defaultdict(dict)
+    for b in ds.balances:
+        closing[b.account_token][b.local_date] = b.closing_balance
+    return {
+        a.account_token: assess(
+            rows[a.account_token],
+            closing[a.account_token],
+            start,
+            end,
+            IST,
+            a.opened_at.astimezone(IST).date(),
+        )
+        for a in ds.accounts
+    }
+
+
+def test_ingest_check_finds_exactly_the_planted_defects(full: Dataset) -> None:
+    """Detector vs generator, in memory: no agent or server reads groundtruth."""
+    from datetime import timedelta
+
+    quality = _assess_all(full)
+    gaps: dict[str, set[date]] = defaultdict(set)
+    for d in full.defects:
+        if d.kind == "missing_days":
+            day, end = date.fromisoformat(d.detail["from"]), date.fromisoformat(d.detail["to"])
+            while day <= end:
+                gaps[d.account_token].add(day)
+                day += timedelta(days=1)
+    found = {acct: set(q.unreconciled_days) for acct, q in quality.items() if q.unreconciled_days}
+    # no false alarms: every unreconciled day is a planted gap day
+    for acct, days in found.items():
+        assert days <= gaps[acct], acct
+    # every gap that lost rows is seen (a gap over quiet days loses nothing and moves no
+    # balance, so there is nothing to see)
+    lossy = {d.account_token for d in full.defects if d.kind == "missing_days" and d.txn_ids}
+    assert set(found) == lossy and lossy
+
+    quarantined = {q.txn_id for v in quality.values() for q in v.quarantined}
+    assert quarantined == {d.txn_ids[1] for d in full.defects if d.kind == "double_post"}
+    netted = {(n.txn_id, n.reversal_txn_id) for v in quality.values() for n in v.netted}
+    assert netted == {tuple(d.txn_ids) for d in full.defects if d.kind == "reversal"}
+    assert not any(v.unmatched_reversals for v in quality.values())
+
+
+def test_planted_and_tiny_accounts_reconcile_every_day() -> None:
+    tiny = generate(SPEC, seed=42, spec_hash="h")
+    quality = _assess_all(tiny)
+    assert all(not q.unreconciled_days and not q.quarantined for q in quality.values())
+    assert all(q.days_expected > 0 for q in quality.values())

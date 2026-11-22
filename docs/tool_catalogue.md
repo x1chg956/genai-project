@@ -5,10 +5,10 @@ Every MCP tool, read from the servers themselves. Kind: R read, C compute, W wri
 
 | Server | Tool | Kind | Tests |
 |---|---|---|---|
-| transactions | `get_account_summary` | R | 6 |
+| transactions | `get_account_summary` | R | 7 |
 | transactions | `get_counterparty_flows` | R | 5 |
-| transactions | `get_transactions` | R | 9 |
-| aml_engine | `evaluate_rules` | C | 9 |
+| transactions | `get_transactions` | R | 11 |
+| aml_engine | `evaluate_rules` | C | 10 |
 | aml_engine | `get_rule_metadata` | C | 4 |
 | regulatory_kb | `get_passage` | R | 4 |
 | regulatory_kb | `search_passages` | R | 11 |
@@ -19,7 +19,8 @@ Every MCP tool, read from the servers themselves. Kind: R read, C compute, W wri
 ## `get_account_summary` (transactions, R)
 
 R. Counts, totals, p50 and p90 per channel and direction over the last
-window_days local days up to the alert date. Exact decimal amounts.
+window_days local days up to the alert date. Exact decimal amounts. Duplicate
+postings and netted reversal pairs are left out, as in evaluate_rules.
 
 **Input**
 
@@ -214,13 +215,15 @@ window_days local days up to the alert date. Exact decimal amounts.
 - `tests/mcp_servers/transactions/test_server.py::test_get_account_summary_invalid_input[0]`
 - `tests/mcp_servers/transactions/test_server.py::test_get_account_summary_invalid_input[367]`
 - `tests/mcp_servers/transactions/test_server.py::test_get_account_summary_invalid_input[seven]`
+- `tests/mcp_servers/transactions/test_server.py::test_get_account_summary_leaves_out_quarantined_and_netted_rows`
 - `tests/mcp_servers/transactions/test_server.py::test_out_of_scope_case`
 - `tests/mcp_servers/transactions/test_server.py::test_unknown_case_not_found`
 
 ## `get_counterparty_flows` (transactions, R)
 
 R. The top_k counterparties by total value over the last window_days local days
-up to the alert date, with credit and debit counts and totals.
+up to the alert date, with credit and debit counts and totals. Duplicate postings
+and netted reversal pairs are left out, as in evaluate_rules.
 
 **Input**
 
@@ -405,7 +408,10 @@ up to the alert date, with credit and debit counts and totals.
 
 R. One page (at most 200 rows) of an account's transactions between two
 Asia/Kolkata local dates, inclusive, ordered by time. Amounts are decimal strings.
-`ledger_ref` names the whole range for evaluate_rules.
+`ledger_ref` names the whole range for evaluate_rules. `quality` covers the whole
+range: days whose closing balance does not reconcile with the rows (missing or extra
+rows), duplicate postings quarantined and reversal pairs netted. Every row on file is
+listed, including quarantined and netted ones.
 
 **Input**
 
@@ -477,6 +483,91 @@ Asia/Kolkata local dates, inclusive, ordered by time. Amounts are decimal string
             "page_size": {
               "type": "integer"
             },
+            "quality": {
+              "additionalProperties": false,
+              "description": "Data quality of one account's slice between two local dates, inclusive.",
+              "properties": {
+                "days_expected": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "days_reconciled": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "netted": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "amount": {
+                        "decimal_places": 2,
+                        "max_digits": 18,
+                        "type": "string"
+                      },
+                      "reversal_txn_id": {
+                        "type": "string"
+                      },
+                      "txn_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "txn_id",
+                      "reversal_txn_id",
+                      "amount"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "quarantined": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "duplicate_of": {
+                        "type": "string"
+                      },
+                      "txn_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "txn_id",
+                      "duplicate_of"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "rule_input_count": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "unmatched_reversals": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "unreconciled_days": {
+                  "items": {
+                    "format": "date",
+                    "type": "string"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "days_expected",
+                "days_reconciled",
+                "unreconciled_days",
+                "quarantined",
+                "netted",
+                "unmatched_reversals",
+                "rule_input_count"
+              ],
+              "type": "object"
+            },
             "to_date": {
               "format": "date",
               "type": "string"
@@ -542,6 +633,17 @@ Asia/Kolkata local dates, inclusive, ordered by time. Amounts are decimal string
                     ],
                     "default": null
                   },
+                  "reverses_txn_id": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null
+                  },
                   "ts": {
                     "format": "date-time",
                     "type": "string"
@@ -572,6 +674,7 @@ Asia/Kolkata local dates, inclusive, ordered by time. Amounts are decimal string
             "total",
             "has_more",
             "ledger_ref",
+            "quality",
             "transactions"
           ],
           "type": "object"
@@ -638,13 +741,16 @@ Asia/Kolkata local dates, inclusive, ordered by time. Amounts are decimal string
 - `tests/mcp_servers/transactions/test_server.py::test_get_transactions_local_day_boundary`
 - `tests/mcp_servers/transactions/test_server.py::test_get_transactions_never_returns_memo_text`
 - `tests/mcp_servers/transactions/test_server.py::test_get_transactions_pages_never_overlap`
+- `tests/mcp_servers/transactions/test_server.py::test_get_transactions_reports_gap_duplicate_and_reversal`
+- `tests/mcp_servers/transactions/test_server.py::test_get_transactions_reports_quality_of_a_clean_ledger`
 
 ## `evaluate_rules` (aml_engine, C)
 
 C. Run the rule pack (or the listed rule_ids) over the ledger slice named by
-ledger_ref (from get_transactions). Returns one RuleResult per rule with observed
-inputs, thresholds and supporting txn_ids. A fired rule is an indicator, not a
-decision.
+ledger_ref (from get_transactions). Duplicate postings and netted reversal pairs are
+left out first, as get_transactions' `quality` reports. Returns one RuleResult per
+rule with observed inputs, thresholds and supporting txn_ids. A fired rule is an
+indicator, not a decision.
 
 **Input**
 
@@ -700,6 +806,10 @@ decision.
         {
           "additionalProperties": false,
           "properties": {
+            "excluded_txn_count": {
+              "default": 0,
+              "type": "integer"
+            },
             "ledger_ref": {
               "type": "string"
             },
@@ -826,6 +936,7 @@ decision.
 - `tests/mcp_servers/aml_engine/test_server.py::test_evaluate_rules_happy_matches_pure_functions`
 - `tests/mcp_servers/aml_engine/test_server.py::test_evaluate_rules_invalid_input[ledger:v1:ACCT-SYN-000001:2026-03-31:2026-03-01:0123456789abcdef]`
 - `tests/mcp_servers/aml_engine/test_server.py::test_evaluate_rules_invalid_input[nonsense]`
+- `tests/mcp_servers/aml_engine/test_server.py::test_evaluate_rules_leaves_out_duplicates_and_netted_reversals`
 - `tests/mcp_servers/aml_engine/test_server.py::test_evaluate_rules_ledger_defect_is_reported`
 - `tests/mcp_servers/aml_engine/test_server.py::test_evaluate_rules_refuses_a_changed_ledger`
 - `tests/mcp_servers/aml_engine/test_server.py::test_evaluate_rules_subset_and_decimal_strings`

@@ -51,6 +51,8 @@ def ledger_digest(rows: Iterable[Transaction]) -> str:
                 t.counterparty_token or "",
             ]
         )
+        if t.reverses_txn_id:  # appended only when set, so older digests stay stable
+            line += f"|rev={t.reverses_txn_id}"
         h.update(line.encode("utf-8") + b"\n")
     return h.hexdigest()[:16]
 

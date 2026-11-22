@@ -167,7 +167,7 @@ def test_unknown_profile_rejected() -> None:
 
 def test_rows_line_up_with_table_columns(ds: Dataset) -> None:
     ledger = ledger_rows(ds)
-    assert {len(r) for r in ledger['"transaction"']} == {10}
+    assert {len(r) for r in ledger['"transaction"']} == {11}
     assert len(ledger['"transaction"']) == len(ds.transactions)
     labels = label_rows(ds)
     assert {len(r) for r in labels["case_labels"]} == {8}

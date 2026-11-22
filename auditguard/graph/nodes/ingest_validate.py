@@ -1,14 +1,19 @@
 """ingest_validate (code): read the alerted account's window and check data quality.
 
-Phase 1 ledger has no load calendar, so coverage is 1 when rows exist and missing days are
-not detected; duplicates are counted by repeated txn_id. Generator v1 adds missing days,
-duplicates and reversals in Phase 2, and this node grows with it (docs/02 Phase 2 task 1).
+The transactions server computes the quality of the whole range (mcp_servers/common/quality.py)
+with the same cleaning evaluate_rules applies, so the report and the rules always agree:
+- coverage = reconciled days / expected days, against the bank's closing balances; the
+  unreconciled days are the missing days (rows missing or extra);
+- duplicates_quarantined and reversals_netted count what the rules leave out.
+Verdict: unusable when the slice has no rows or coverage is below `ingest.min_coverage`;
+gap when any day does not reconcile; ok otherwise. C1 passes a gap to the agent, which sees
+the report; C2 routes it to the planner (docs/03 §4).
 """
 
 from __future__ import annotations
 
-from datetime import timedelta
-from decimal import Decimal
+from datetime import date, timedelta
+from decimal import ROUND_HALF_EVEN, Decimal
 from typing import Any
 
 from auditguard.graph.deps import GraphDeps
@@ -17,6 +22,34 @@ from auditguard.hooks.tools import ToolSession, is_error
 from auditguard.schemas import DataQualityReport, LedgerSlice, ToolError
 
 CALLER = "ingest_validate"
+RATIO = Decimal("0.0001")
+
+
+def quality_report(
+    quality: dict[str, Any], txn_total: int, min_coverage: Decimal
+) -> DataQualityReport:
+    expected = quality["days_expected"]
+    coverage = (
+        (Decimal(quality["days_reconciled"]) / Decimal(expected)).quantize(
+            RATIO, rounding=ROUND_HALF_EVEN
+        )
+        if expected
+        else Decimal(0)
+    )
+    missing = [date.fromisoformat(d) for d in quality["unreconciled_days"]]
+    if txn_total == 0 or coverage < min_coverage:
+        verdict = "unusable"
+    elif missing:
+        verdict = "gap"
+    else:
+        verdict = "ok"
+    return DataQualityReport(
+        coverage_ratio=coverage,
+        missing_days=missing,
+        duplicates_quarantined=len(quality["quarantined"]),
+        reversals_netted=len(quality["netted"]),
+        verdict=verdict,
+    )
 
 
 def make_ingest_validate(deps: GraphDeps) -> Any:
@@ -33,39 +66,26 @@ def make_ingest_validate(deps: GraphDeps) -> Any:
             clock=deps.clock,
             audit=deps.audit,
         )
-        txn_ids: list[str] = []
-        ref = ""
         async with session:
-            page = 1
-            while True:
-                result = await session.call(
-                    "get_transactions",
-                    account_token=alert.account_ref,
-                    from_date=from_date.isoformat(),
-                    to_date=to_date.isoformat(),
-                    page=page,
-                )
-                if is_error(result):
-                    return {"status": "ERROR", "errors": [ToolError.model_validate(result)]}
-                ref = result["ledger_ref"]
-                txn_ids += [t["txn_id"] for t in result["transactions"]]
-                if not result["has_more"]:
-                    break
-                page += 1
-        duplicates = len(txn_ids) - len(set(txn_ids))
-        verdict = "unusable" if not txn_ids else ("gap" if duplicates else "ok")
-        quality = DataQualityReport(
-            coverage_ratio=Decimal(1 if txn_ids else 0),
-            duplicates_quarantined=duplicates,
-            verdict=verdict,
-        )
+            result = await session.call(
+                "get_transactions",
+                account_token=alert.account_ref,
+                from_date=from_date.isoformat(),
+                to_date=to_date.isoformat(),
+                page=1,
+            )
+        if is_error(result):
+            return {"status": "ERROR", "errors": [ToolError.model_validate(result)]}
+        # Quality and the reference cover the whole range, so one page is enough here.
+        quality = result["quality"]
+        report = quality_report(quality, result["total"], deps.settings.ingest.min_coverage)
         ledger = LedgerSlice(
             account_tokens=[alert.account_ref],
             from_date=from_date,
             to_date=to_date,
-            txn_count=len(set(txn_ids)),
-            ref=ref,
+            txn_count=quality["rule_input_count"],
+            ref=result["ledger_ref"],
         )
-        return {"ledger": ledger, "data_quality": quality, "status": "IN_PROGRESS"}
+        return {"ledger": ledger, "data_quality": report, "status": "IN_PROGRESS"}
 
     return ingest_validate

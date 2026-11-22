@@ -9,6 +9,7 @@ from pydantic import Field
 from auditguard.schemas import Model, Transaction
 from auditguard.schemas.common import Money, UtcDatetime
 from auditguard.schemas.ledger import Channel, Direction
+from mcp_servers.common.quality import LedgerQuality
 
 
 class LedgerPage(Model):
@@ -21,7 +22,10 @@ class LedgerPage(Model):
     has_more: bool
     ledger_ref: str
     """Reference to the whole range (all pages), for evaluate_rules."""
+    quality: LedgerQuality
+    """Over the whole range: balance reconciliation, quarantined duplicates, netted reversals."""
     transactions: list[Transaction]
+    """Every row on file, including quarantined and netted ones (see `quality`)."""
 
 
 class ChannelStats(Model):

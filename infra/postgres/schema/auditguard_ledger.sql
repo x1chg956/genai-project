@@ -35,9 +35,21 @@ CREATE TABLE IF NOT EXISTS ledger."transaction" (
     channel            TEXT NOT NULL,
     counterparty_token TEXT,
     memo_ref           TEXT,
-    memo               TEXT
+    memo               TEXT,
+    reverses_txn_id    TEXT
 );
+-- Databases created before Phase 2 ingest v2: add the reversal reference in place.
+ALTER TABLE ledger."transaction" ADD COLUMN IF NOT EXISTS reverses_txn_id TEXT;
 CREATE INDEX IF NOT EXISTS transaction_account_ts ON ledger."transaction" (account_token, ts);
+
+-- End-of-day closing balance per account and Asia/Kolkata local day, from core banking.
+-- ingest_validate reconciles each day's movement against the posted rows to find feed gaps.
+CREATE TABLE IF NOT EXISTS ledger.daily_balance (
+    account_token   TEXT NOT NULL REFERENCES ledger.account,
+    local_date      DATE NOT NULL,
+    closing_balance NUMERIC(18, 2) NOT NULL,
+    PRIMARY KEY (account_token, local_date)
+);
 
 CREATE TABLE IF NOT EXISTS ledger.link (
     account_token        TEXT NOT NULL REFERENCES ledger.account,

@@ -11,6 +11,7 @@ import pytest
 from fastmcp import FastMCP
 
 from auditguard.ledger_ref import parse_ledger_ref
+from mcp_servers.common.ledger import InMemoryLedgerRepo, booked_balances
 from mcp_servers.transactions.server import build_server
 from mcp_servers.transactions.stats import nearest_rank
 from tests.mcp_servers.helpers import (
@@ -21,8 +22,11 @@ from tests.mcp_servers.helpers import (
     Called,
     call,
     guard,
+    ist,
+    small_ledger,
     small_repo,
     token,
+    txn,
 )
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -250,3 +254,65 @@ def test_nearest_rank_exact() -> None:
     assert nearest_rank(v[:1], 50) == Decimal("1.00")
     with pytest.raises(ValueError, match="empty"):
         nearest_rank([], 50)
+
+
+# data quality (mcp_servers/common/quality.py) as the tools report it
+
+
+def defective_server() -> FastMCP:
+    """small_ledger plus a double post of txn 2 and a reversed IMPS debit, with books that
+    are missing 25 March: the bank booked txn 2 (250.50) but the feed lost it."""
+    base = small_ledger()
+    rows = [t for t in base if t.account_token == ACCT and t.txn_id != "TXN-SYN-0000002"]
+    copy = base[0].model_copy(update={"txn_id": "TXN-SYN-0000020"})  # double post of txn 1
+    debit = txn(21, ist(30, 16), "700.00", "debit", "IMPS", "CPTY-SYN-000010")
+    back = txn(22, ist(30, 17), "700.00", "credit", "IMPS", "CPTY-SYN-000010").model_copy(
+        update={"reverses_txn_id": debit.txn_id}
+    )
+    books = booked_balances([*base, debit, back], IST)[ACCT]
+    repo = InMemoryLedgerRepo(
+        alerts=[a for a in (small_repo().alert(CASE),) if a],
+        transactions=[*rows, copy, debit, back],
+        balances={ACCT: books},
+        opened={ACCT: ist(1, 0)},
+    )
+    return build_server(repo, guard("transactions"), tz=IST, max_rows=200)
+
+
+def run_on(srv: FastMCP, tool: str, **args: Any) -> Called:
+    base = {"agent_token": token("single_agent"), "case_id": CASE, "account_token": ACCT}
+    return call(srv, tool, base | args)
+
+
+@pytest.mark.tool("get_transactions")
+def test_get_transactions_reports_quality_of_a_clean_ledger() -> None:
+    q = run("get_transactions", from_date="2026-03-01", to_date="2026-03-31").result["quality"]
+    assert (q["days_expected"], q["days_reconciled"], q["unreconciled_days"]) == (31, 31, [])
+    assert q["quarantined"] == q["netted"] == q["unmatched_reversals"] == []
+    assert q["rule_input_count"] == 7
+
+
+@pytest.mark.tool("get_transactions")
+def test_get_transactions_reports_gap_duplicate_and_reversal() -> None:
+    r = run_on(defective_server(), "get_transactions", from_date="2026-03-01", to_date="2026-03-31")
+    q = r.result["quality"]
+    # balances: books held txn 2, the feed does not, so the day reconciles nowhere else
+    assert q["unreconciled_days"] == ["2026-03-25"]
+    assert (q["days_expected"], q["days_reconciled"]) == (31, 30)
+    assert q["quarantined"] == [{"txn_id": "TXN-SYN-0000020", "duplicate_of": "TXN-SYN-0000001"}]
+    assert q["netted"] == [
+        {"txn_id": "TXN-SYN-0000021", "reversal_txn_id": "TXN-SYN-0000022", "amount": "700.00"}
+    ]
+    assert r.result["total"] == 9  # every row on file is listed
+    assert q["rule_input_count"] == 6
+
+
+@pytest.mark.tool("get_account_summary")
+def test_get_account_summary_leaves_out_quarantined_and_netted_rows() -> None:
+    r = run_on(defective_server(), "get_account_summary", window_days=31)
+    # txns 1, 3, 4, 7 credits (100.00 + 300.25 + 400.00 + 5.00); 5, 6 debits (900.00 + 50.00)
+    assert (r.result["txn_count"], r.result["credit_total"], r.result["debit_total"]) == (
+        6,
+        "805.25",
+        "950.00",
+    )

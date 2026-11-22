@@ -19,6 +19,7 @@ from data.generator.model import Dataset
 
 SCHEMA_DIR = REPO_ROOT / "infra" / "postgres" / "schema"
 LEDGER_TABLES = (
+    "daily_balance",
     "prior_report",
     "alert",
     "link",
@@ -60,9 +61,11 @@ def ledger_rows(ds: Dataset) -> dict[str, list[tuple[Any, ...]]]:
                 r.txn.counterparty_token,
                 r.txn.memo_ref,
                 r.memo,
+                r.txn.reverses_txn_id,
             )
             for r in ds.transactions
         ],
+        "daily_balance": [(b.account_token, b.local_date, b.closing_balance) for b in ds.balances],
         "alert": [
             (a.alert_id, a.account_ref, a.scenario_code, a.detected_at, a.profile)
             for a in ds.alerts
@@ -97,6 +100,11 @@ def label_rows(ds: Dataset) -> dict[str, list[tuple[Any, ...]]]:
 
 def _insert(cur: psycopg.Cursor[Any], table: str, rows: Sequence[tuple[Any, ...]]) -> None:
     if not rows:
+        return
+    if table == "ledger.daily_balance":  # ~150k rows in `full`: COPY, not one INSERT each
+        with cur.copy("COPY ledger.daily_balance FROM STDIN") as copy:
+            for row in rows:
+                copy.write_row(row)
         return
     placeholders = ", ".join(["%s"] * len(rows[0]))
     cur.executemany(f"INSERT INTO {table} VALUES ({placeholders})", rows)  # noqa: S608 - fixed table names

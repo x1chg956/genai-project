@@ -27,6 +27,7 @@ from mcp_servers.common.ledger import (
     case_accounts,
     local_day_bounds,
 )
+from mcp_servers.common.quality import rule_input
 
 
 def build_server(repo: LedgerRepo, pack: RulePack, guard: ToolGuard, *, tz: ZoneInfo) -> FastMCP:
@@ -41,9 +42,10 @@ def build_server(repo: LedgerRepo, pack: RulePack, guard: ToolGuard, *, tz: Zone
         profile: Literal["IN"] = "IN",
     ) -> RuleResults | ToolError:
         """C. Run the rule pack (or the listed rule_ids) over the ledger slice named by
-        ledger_ref (from get_transactions). Returns one RuleResult per rule with observed
-        inputs, thresholds and supporting txn_ids. A fired rule is an indicator, not a
-        decision."""
+        ledger_ref (from get_transactions). Duplicate postings and netted reversal pairs are
+        left out first, as get_transactions' `quality` reports. Returns one RuleResult per
+        rule with observed inputs, thresholds and supporting txn_ids. A fired rule is an
+        indicator, not a decision."""
         tool = "evaluate_rules"
         try:
             ref = parse_ledger_ref(ledger_ref)
@@ -67,14 +69,16 @@ def build_server(repo: LedgerRepo, pack: RulePack, guard: ToolGuard, *, tz: Zone
                 "INVALID_INPUT", "ledger changed since ledger_ref was issued; fetch it again", tool
             )
         kyc = repo.kyc_for_account(ref.account_token)
+        cleaned = rule_input(rows)
         try:
-            results = pack.evaluate(rows, kyc, tz, rule_ids)
+            results = pack.evaluate(cleaned, kyc, tz, rule_ids)
         except LedgerDefectError as exc:
             return tool_error("INVALID_INPUT", f"ledger defect: {exc}", tool)
         return RuleResults(
             rule_pack_version=pack.version,
             ledger_ref=ledger_ref,
-            txn_count=len(rows),
+            txn_count=len(cleaned),
+            excluded_txn_count=len(rows) - len(cleaned),
             results=results,
         )
 

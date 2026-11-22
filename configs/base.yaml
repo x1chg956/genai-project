@@ -105,6 +105,7 @@ approval:
 
 ingest:                                        # ingest_validate (code node), docs/03 §2
   window_days: 60                              # local days ending on the alert's detection date
+  min_coverage: "0.80"                         # reconciled share of days below this → unusable (project heuristic)
 
 checkpointer:                                  # thread_id = run_id; Postgres from Phase 2 (docs/02)
   backend: ${CHECKPOINTER:-postgres}            # postgres (databases.app, own schema) | sqlite (path)

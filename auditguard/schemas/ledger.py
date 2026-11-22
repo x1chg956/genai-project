@@ -32,6 +32,8 @@ class Transaction(Model):
     memo_ref: str | None = None
     currency: str = "INR"
     """INR only. Kept as a field so ingest can detect mixed currency as a data defect."""
+    reverses_txn_id: str | None = None
+    """Set on a reversal entry: the txn_id it reverses (core-banking reference, not memo)."""
 
 
 class KycProfile(Model):

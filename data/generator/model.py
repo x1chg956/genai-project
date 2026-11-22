@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from auditguard.schemas import Alert, Transaction
@@ -71,6 +71,15 @@ class DataDefect:
     detail: dict[str, str]
 
 
+@dataclass(frozen=True)
+class BalanceRow:
+    """End-of-day closing balance of one account on one Asia/Kolkata local day."""
+
+    account_token: str
+    local_date: date
+    closing_balance: Decimal
+
+
 @dataclass
 class Dataset:
     seed: int
@@ -83,3 +92,4 @@ class Dataset:
     labels: list[CaseLabel] = field(default_factory=list)
     scenario_params: list[ScenarioParams] = field(default_factory=list)
     defects: list[DataDefect] = field(default_factory=list)
+    balances: list[BalanceRow] = field(default_factory=list)

@@ -46,6 +46,8 @@ Windows: `from_date`/`to_date` are Asia/Kolkata local dates, inclusive. `window_
 
 `get_transactions` returns `ledger_ref = ledger:v1:<account>:<from>:<to>:<digest>`. It names the whole range, not just the page. The digest covers the rows, so `evaluate_rules` refuses a ref whose ledger changed after it was issued.
 
+`LedgerPage.quality` (`LedgerQuality`) also covers the whole range: days expected and reconciled against `daily_balance`, unreconciled days, quarantined duplicates, netted reversal pairs, unmatched reversals and the rule-input row count (docs/04 §1a). The page lists every row on file. `get_account_summary` and `get_counterparty_flows` use the cleaned rows, as `evaluate_rules` does.
+
 ## aml_engine (rules, compute)
 
 | Tool | Input | Output | Label | Phase |
@@ -53,7 +55,7 @@ Windows: `from_date`/`to_date` are Asia/Kolkata local dates, inclusive. `window_
 | evaluate_rules | case_id, ledger_ref, rule_ids (optional), profile | list[RuleResult] | C | 1 |
 | get_rule_metadata | rule_id | RuleMeta | C | 1 |
 
-Loads rule YAML at start-up, records rule-pack version in every result. `evaluate_rules` reads the rows named by `ledger_ref` itself, through the read-only role; the rows never pass through the model. `get_rule_metadata` also takes `agent_token` and `case_id`.
+Loads rule YAML at start-up, records rule-pack version in every result. `evaluate_rules` reads the rows named by `ledger_ref` itself, through the read-only role; the rows never pass through the model. It leaves out quarantined duplicates and netted reversals with the same shared function (docs/04 §1a) and reports `txn_count` (rows the rules saw) and `excluded_txn_count`. `get_rule_metadata` also takes `agent_token` and `case_id`.
 
 ## regulatory_kb (knowledge, read, content untrusted)
 

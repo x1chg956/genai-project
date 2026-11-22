@@ -24,7 +24,8 @@ from zoneinfo import ZoneInfo
 from auditguard.schemas import Alert, Transaction
 from auditguard.schemas.ledger import Channel, Direction
 from data.generator.background import Pools, background_v1, load_background, plan_customer
-from data.generator.defects import plant_defects
+from data.generator.balances import LOOKBACK_DAYS, daily_balances
+from data.generator.defects import FeedDifference, plant_defects
 from data.generator.model import (
     AccountRow,
     CaseLabel,
@@ -451,6 +452,13 @@ def generate(
         background_accounts = [
             a.account_token for i, a in enumerate(ds.accounts) if i not in plant_at
         ]
-        plant_defects(ds, background_accounts, bg_spec.defects, rng, ids.next)
+        diff = plant_defects(ds, background_accounts, bg_spec.defects, rng, ids.next)
+    else:
+        diff = FeedDifference()
     ds.transactions.sort(key=lambda r: (r.txn.ts, r.txn.txn_id))
+    booked = [r for r in ds.transactions if r.txn.txn_id not in diff.unbooked] + diff.unfed
+    last_day = max([end_date, *(a.detected_at.astimezone(IST).date() for a in ds.alerts)])
+    ds.balances = daily_balances(
+        booked, ds.accounts, start - timedelta(days=LOOKBACK_DAYS), last_day
+    )
     return ds

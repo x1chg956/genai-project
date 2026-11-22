@@ -4,7 +4,7 @@
 
 | Database | Contents | Who connects |
 |---|---|---|
-| Postgres `auditguard` | customer, entity_party, account, transaction, link, alert, prior_report, cases, approvals, audit_log, checkpoints, store | App and MCP servers (separate DB roles: transactions and aml_engine connect as `auditguard_ro`, SELECT only on ledger tables, read-only transactions) |
+| Postgres `auditguard` | customer, entity_party, account, transaction, daily_balance, link, alert, prior_report, cases, approvals, audit_log, checkpoints, store | App and MCP servers (separate DB roles: transactions and aml_engine connect as `auditguard_ro`, SELECT only on ledger tables, read-only transactions) |
 | Postgres `groundtruth` | case_labels, scenario_params | Evaluation harness and generator only. **No MCP server, no agent.** Separate user and password |
 | Portal SQLite (`filing_portal.db_path`, default `var/portal.db`) | drafts, submissions, receipts | filing_portal server only |
 
@@ -14,6 +14,7 @@ Ledger tables (minimum columns). Money columns are `NUMERIC`, never float; `ts` 
 erDiagram
   customer ||--o{ account : holds
   account ||--o{ transaction : "has"
+  account ||--o{ daily_balance : "closes at"
   account ||--o{ link : "linked from"
   account ||--o{ alert : "alerted on"
   customer ||--o{ prior_report : "subject of"
@@ -41,6 +42,12 @@ erDiagram
     text channel
     text counterparty_token
     text memo "untrusted text"
+    text reverses_txn_id "set on a reversal entry"
+  }
+  daily_balance {
+    text account_token FK
+    date local_date "Asia/Kolkata"
+    numeric closing_balance "NUMERIC(18,2)"
   }
   link {
     text account_token FK
@@ -94,6 +101,20 @@ flowchart LR
 ```
 
 `memo` is untrusted text and is used for injection tests.
+
+### 1a. Ledger contract for data quality (ingest_validate v2)
+
+The transaction feed can be wrong; the books are not. `daily_balance` holds the end-of-day closing balance per account and Asia/Kolkata local day, as core banking reports it. `reverses_txn_id` is the structured reference a reversal entry carries. One pure function, `mcp_servers/common/quality.py`, defines the cleaned slice, and both `transactions` and `aml_engine` call it, so the data-quality report, the summaries and the rules always see the same rows:
+
+| Defect | How it is found | What happens to it |
+|---|---|---|
+| Missing days (feed gap) | Day d is unreconciled when closing(d) − closing(d−1) ≠ the day's posted credits − debits, or a balance is not on file. Days before the account opened are not expected; the opening day starts at zero | Listed in `DataQualityReport.missing_days`; coverage = reconciled / expected days |
+| Duplicate posting | Same account, time, amount, currency, direction, channel, counterparty and reversal reference as another row; the lowest txn_id is kept | Quarantined: left out of rules and summaries, still listed by `get_transactions` |
+| Reversal | `reverses_txn_id` names a row in the slice of the same account and amount, opposite direction, not later. Memo text is never read | Both rows netted out of rules and summaries; a reversal that does not match stays in and is reported |
+
+Duplicates are left out before reconciliation (they were never booked); reversals stay in it (both entries posted). `ledger_ref`'s digest still covers the raw rows, so a changed feed is still refused. Verdict: `unusable` when the slice has no rows or coverage is below `ingest.min_coverage` (0.80, a project heuristic); `gap` when any day is unreconciled; otherwise `ok`. Duplicates and reversals alone do not make a gap: they are handled. Limit: a gap whose lost rows net to exactly zero on every day cannot be seen.
+
+The generator writes balances from what was booked (dropped feed rows included, double posts excluded), from the later of account opening and 366 days before the data start. Its tests check the detector against the planted defects in memory: no false alarms, and every gap that lost rows, every double post and every reversal is found.
 
 ## 2. Synthetic ledger generator (`data/generator/`)
 
